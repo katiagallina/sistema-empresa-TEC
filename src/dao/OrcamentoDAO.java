@@ -5,25 +5,24 @@ import model.Orcamento;
 import model.ItemOrcamento;
 
 import java.sql.*;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
 public class OrcamentoDAO {
 
-    public void inserir(Orcamento orcamento) {
-        String sqlOrcamento = "INSERT INTO orcamentos (cliente_nome, valor_total) VALUES (?, ?)";
-        String sqlItem = "INSERT INTO itens_orcamento (id_orcamento, id_produto, quantidade, valor_unitario, valor_total) VALUES (?, ?, ?, ?, ?)";
+    public void inserir(Orcamento orcamento) throws SQLException {
+        String sqlOrcamento = "INSERT INTO orcamentos (cliente_id, total, status) VALUES (?, ?, ?)";
+        String sqlItem = "INSERT INTO orcamento_itens (orcamento_id, tipo_item, produto_id, servico_id, descricao, quantidade, valor_unitario, valor_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = Conexao.getConnection()) {
             conn.setAutoCommit(false);
+            try (PreparedStatement stmtOrc = conn.prepareStatement(sqlOrcamento, Statement.RETURN_GENERATED_KEYS)) {
+                stmtOrc.setInt(1, orcamento.getClienteId());
+                stmtOrc.setDouble(2, orcamento.getValorTotal());
+                stmtOrc.setString(3, orcamento.getStatus() != null ? orcamento.getStatus() : "ABERTO");
+                stmtOrc.executeUpdate();
 
-            try (PreparedStatement stmtOrcamento = conn.prepareStatement(sqlOrcamento, Statement.RETURN_GENERATED_KEYS)) {
-
-                stmtOrcamento.setString(1, orcamento.getClienteNome());
-                stmtOrcamento.setDouble(2, orcamento.getValorTotal());
-                stmtOrcamento.executeUpdate();
-
-                try (ResultSet generatedKeys = stmtOrcamento.getGeneratedKeys()) {
+                try (ResultSet generatedKeys = stmtOrc.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
                         int idOrcamento = generatedKeys.getInt(1);
                         orcamento.setId(idOrcamento);
@@ -31,10 +30,21 @@ public class OrcamentoDAO {
                         try (PreparedStatement stmtItem = conn.prepareStatement(sqlItem)) {
                             for (ItemOrcamento item : orcamento.getItens()) {
                                 stmtItem.setInt(1, idOrcamento);
-                                stmtItem.setInt(2, item.getIdProduto());
-                                stmtItem.setDouble(3, item.getQuantidade());
-                                stmtItem.setDouble(4, item.getValorUnitario());
-                                stmtItem.setDouble(5, item.getValorTotal());
+                                stmtItem.setString(2, item.getTipoItem());
+                                if (item.getIdProduto() != null && item.getIdProduto() > 0) {
+                                    stmtItem.setInt(3, item.getIdProduto());
+                                } else {
+                                    stmtItem.setNull(3, Types.INTEGER);
+                                }
+                                if (item.getIdServico() != null && item.getIdServico() > 0) {
+                                    stmtItem.setInt(4, item.getIdServico());
+                                } else {
+                                    stmtItem.setNull(4, Types.INTEGER);
+                                }
+                                stmtItem.setString(5, item.getDescricao());
+                                stmtItem.setDouble(6, item.getQuantidade());
+                                stmtItem.setDouble(7, item.getValorUnitario());
+                                stmtItem.setDouble(8, item.getValorTotal());
                                 stmtItem.addBatch();
                             }
                             stmtItem.executeBatch();
@@ -42,17 +52,14 @@ public class OrcamentoDAO {
                     }
                 }
                 conn.commit();
-                System.out.println("Orçamento inserido com sucesso!");
             } catch (SQLException e) {
                 conn.rollback();
-                System.out.println("Erro ao inserir orçamento: " + e.getMessage());
+                throw e;
             }
-        } catch (SQLException e) {
-            System.out.println("Erro de conexão: " + e.getMessage());
         }
     }
 
-    public List<Orcamento> listar() {
+    public List<Orcamento> listar() throws SQLException {
         String sql = "SELECT * FROM orcamentos ORDER BY id DESC";
         List<Orcamento> orcamentos = new ArrayList<>();
 
@@ -63,42 +70,65 @@ public class OrcamentoDAO {
             while (rs.next()) {
                 Orcamento o = new Orcamento();
                 o.setId(rs.getInt("id"));
-                o.setClienteNome(rs.getString("cliente_nome"));
-                o.setValorTotal(rs.getDouble("valor_total"));
-                
+                o.setClienteId(rs.getInt("cliente_id"));
+                o.setDataOrcamento(rs.getTimestamp("data"));
+                o.setValorTotal(rs.getDouble("total"));
+                o.setStatus(rs.getString("status"));
                 orcamentos.add(o);
             }
-
-        } catch (SQLException e) {
-            System.out.println("Erro ao listar orçamentos: " + e.getMessage());
         }
-
         return orcamentos;
     }
 
-    public Orcamento buscarPorId(int id) {
-        String sql = "SELECT * FROM orcamentos WHERE id = ?";
-        Orcamento o = null;
+    public List<Orcamento> listarAbertos() throws SQLException {
+        String sql = "SELECT * FROM orcamentos WHERE status = 'ABERTO' OR status = 'APROVADO' ORDER BY id DESC";
+        List<Orcamento> orcamentos = new ArrayList<>();
 
+        try (Connection conn = Conexao.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                Orcamento o = new Orcamento();
+                o.setId(rs.getInt("id"));
+                o.setClienteId(rs.getInt("cliente_id"));
+                o.setDataOrcamento(rs.getTimestamp("data"));
+                o.setValorTotal(rs.getDouble("total"));
+                o.setStatus(rs.getString("status"));
+                orcamentos.add(o);
+            }
+        }
+        return orcamentos;
+    }
+
+    public Orcamento buscarPorId(int id) throws SQLException {
+        String sql = "SELECT * FROM orcamentos WHERE id = ?";
         try (Connection conn = Conexao.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, id);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                o = new Orcamento();
-
-                o.setId(rs.getInt("id"));
-                o.setClienteNome(rs.getString("cliente_nome"));
-                o.setValorTotal(rs.getDouble("valor_total"));
-                
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Orcamento o = new Orcamento();
+                    o.setId(rs.getInt("id"));
+                    o.setClienteId(rs.getInt("cliente_id"));
+                    o.setDataOrcamento(rs.getTimestamp("data"));
+                    o.setValorTotal(rs.getDouble("total"));
+                    o.setStatus(rs.getString("status"));
+                    return o;
+                }
             }
-
-        } catch (SQLException e) {
-            System.out.println("Erro ao buscar orçamento: " + e.getMessage());
         }
+        return null;
+    }
 
-        return o;
+    public void atualizarStatus(int id, String status) throws SQLException {
+        String sql = "UPDATE orcamentos SET status = ? WHERE id = ?";
+        try (Connection conn = Conexao.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, status);
+            stmt.setInt(2, id);
+            stmt.executeUpdate();
+        }
     }
 }

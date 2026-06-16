@@ -1,10 +1,12 @@
 package model;
 
 public class ItemOrdemServico {
-
     private int id;
     private int idOrdemServico;
-    private int idProduto;
+    private String tipoItem; // "PRODUTO" ou "SERVICO"
+    private Integer idProduto; // Pode ser nulo
+    private Integer idServico; // Pode ser nulo
+    private String descricao;
     private double quantidade;
     private double valorUnitario;
     private double valorTotal;
@@ -12,10 +14,13 @@ public class ItemOrdemServico {
     public ItemOrdemServico() {
     }
 
-    public ItemOrdemServico(int id, int idOrdemServico, int idProduto, double quantidade, double valorUnitario, double valorTotal) {
+    public ItemOrdemServico(int id, int idOrdemServico, String tipoItem, Integer idProduto, Integer idServico, String descricao, double quantidade, double valorUnitario, double valorTotal) {
         this.id = id;
         this.idOrdemServico = idOrdemServico;
+        this.tipoItem = tipoItem;
         this.idProduto = idProduto;
+        this.idServico = idServico;
+        this.descricao = descricao;
         this.quantidade = quantidade;
         this.valorUnitario = valorUnitario;
         this.valorTotal = valorTotal;
@@ -37,12 +42,36 @@ public class ItemOrdemServico {
         this.idOrdemServico = idOrdemServico;
     }
 
-    public int getIdProduto() {
+    public String getTipoItem() {
+        return tipoItem;
+    }
+
+    public void setTipoItem(String tipoItem) {
+        this.tipoItem = tipoItem;
+    }
+
+    public Integer getIdProduto() {
         return idProduto;
     }
 
-    public void setIdProduto(int idProduto) {
+    public void setIdProduto(Integer idProduto) {
         this.idProduto = idProduto;
+    }
+
+    public Integer getIdServico() {
+        return idServico;
+    }
+
+    public void setIdServico(Integer idServico) {
+        this.idServico = idServico;
+    }
+
+    public String getDescricao() {
+        return descricao;
+    }
+
+    public void setDescricao(String descricao) {
+        this.descricao = descricao;
     }
 
     public double getQuantidade() {

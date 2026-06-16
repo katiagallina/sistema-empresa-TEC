@@ -4,20 +4,19 @@ import java.sql.Timestamp;
 import java.util.List;
 
 public class OrdemServico {
-
     private int id;
-    private int idOrcamento;
+    private int clienteId;
     private Timestamp dataOrdem;
     private double valorTotal;
-    private String status;
+    private String status; // "EM ANDAMENTO", "FINALIZADA", "CANCELADA"
     private List<ItemOrdemServico> itens;
 
     public OrdemServico() {
     }
 
-    public OrdemServico(int id, int idOrcamento, Timestamp dataOrdem, double valorTotal, String status, List<ItemOrdemServico> itens) {
+    public OrdemServico(int id, int clienteId, Timestamp dataOrdem, double valorTotal, String status, List<ItemOrdemServico> itens) {
         this.id = id;
-        this.idOrcamento = idOrcamento;
+        this.clienteId = clienteId;
         this.dataOrdem = dataOrdem;
         this.valorTotal = valorTotal;
         this.status = status;
@@ -32,12 +31,12 @@ public class OrdemServico {
         this.id = id;
     }
 
-    public int getIdOrcamento() {
-        return idOrcamento;
+    public int getClienteId() {
+        return clienteId;
     }
 
-    public void setIdOrcamento(int idOrcamento) {
-        this.idOrcamento = idOrcamento;
+    public void setClienteId(int clienteId) {
+        this.clienteId = clienteId;
     }
 
     public Timestamp getDataOrdem() {

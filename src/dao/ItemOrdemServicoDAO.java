@@ -12,31 +12,35 @@ import java.util.List;
 
 public class ItemOrdemServicoDAO {
 
-    public List<ItemOrdemServico> buscarPorIdOrdemServico(int idOrdemServico) {
-        String sql = "SELECT * FROM itens_ordem_servico WHERE id_ordem_servico = ?";
+    public List<ItemOrdemServico> buscarPorIdOrdemServico(int idOrdemServico) throws SQLException {
+        String sql = "SELECT * FROM ordem_servico_itens WHERE ordem_servico_id = ?";
         List<ItemOrdemServico> itens = new ArrayList<>();
 
         try (Connection conn = Conexao.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, idOrdemServico);
-            ResultSet rs = stmt.executeQuery();
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    ItemOrdemServico item = new ItemOrdemServico();
+                    item.setId(rs.getInt("id"));
+                    item.setIdOrdemServico(rs.getInt("ordem_servico_id"));
+                    item.setTipoItem(rs.getString("tipo_item"));
 
-            while (rs.next()) {
-                ItemOrdemServico item = new ItemOrdemServico();
-                item.setId(rs.getInt("id"));
-                item.setIdOrdemServico(rs.getInt("id_ordem_servico"));
-                item.setIdProduto(rs.getInt("id_produto"));
-                item.setQuantidade(rs.getDouble("quantidade"));
-                item.setValorUnitario(rs.getDouble("valor_unitario"));
-                item.setValorTotal(rs.getDouble("valor_total"));
-                itens.add(item);
+                    int pId = rs.getInt("produto_id");
+                    item.setIdProduto(rs.wasNull() ? null : pId);
+
+                    int sId = rs.getInt("servico_id");
+                    item.setIdServico(rs.wasNull() ? null : sId);
+
+                    item.setDescricao(rs.getString("descricao"));
+                    item.setQuantidade(rs.getDouble("quantidade"));
+                    item.setValorUnitario(rs.getDouble("valor_unitario"));
+                    item.setValorTotal(rs.getDouble("valor_total"));
+                    itens.add(item);
+                }
             }
-
-        } catch (SQLException e) {
-            System.out.println("Erro ao buscar itens da ordem de serviço: " + e.getMessage());
         }
-
         return itens;
     }
 }

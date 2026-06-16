@@ -1,18 +1,16 @@
 package model;
 
-import java.math.BigDecimal;
-
 public class Servico {
 
     private int id;
     private String nome;
     private String tipo; // "POR_HORA" ou "VALOR_FIXO"
-    private BigDecimal valorBase;
+    private double valorBase;
 
     public Servico() {
     }
 
-    public Servico(int id, String nome, String tipo, BigDecimal valorBase) {
+    public Servico(int id, String nome, String tipo, double valorBase) {
         this.id = id;
         this.nome = nome;
         this.tipo = tipo;
@@ -43,11 +41,11 @@ public class Servico {
         this.tipo = tipo;
     }
 
-    public BigDecimal getValorBase() {
+    public double getValorBase() {
         return valorBase;
     }
 
-    public void setValorBase(BigDecimal valorBase) {
+    public void setValorBase(double valorBase) {
         this.valorBase = valorBase;
     }
 
