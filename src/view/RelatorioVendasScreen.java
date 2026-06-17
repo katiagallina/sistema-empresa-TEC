@@ -22,8 +22,8 @@ public class RelatorioVendasScreen extends JFrame {
     private JTable table;
     private DefaultTableModel tableModel;
     private JButton buscarButton;
-    private JSpinner dataInicioSpinner;
-    private JSpinner dataFimSpinner;
+    private util.DatePicker dataInicioPicker;
+    private util.DatePicker dataFimPicker;
     private JLabel totalVendasLabel;
     private JLabel lucroTotalLabel;
 
@@ -47,16 +47,12 @@ public class RelatorioVendasScreen extends JFrame {
         cal.add(Calendar.MONTH, -1); // Filtro inicial: último mês
         Date dataInicioPadrao = cal.getTime();
         
-        dataInicioSpinner = new JSpinner(new SpinnerDateModel(dataInicioPadrao, null, null, Calendar.DAY_OF_MONTH));
-        JSpinner.DateEditor deInicio = new JSpinner.DateEditor(dataInicioSpinner, "dd/MM/yyyy");
-        dataInicioSpinner.setEditor(deInicio);
-        filtroPanel.add(dataInicioSpinner);
-
+        dataInicioPicker = new util.DatePicker(dataInicioPadrao);
+        filtroPanel.add(dataInicioPicker);
+ 
         filtroPanel.add(new JLabel("Data Fim:"));
-        dataFimSpinner = new JSpinner(new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH));
-        JSpinner.DateEditor deFim = new JSpinner.DateEditor(dataFimSpinner, "dd/MM/yyyy");
-        dataFimSpinner.setEditor(deFim);
-        filtroPanel.add(dataFimSpinner);
+        dataFimPicker = new util.DatePicker(new Date());
+        filtroPanel.add(dataFimPicker);
 
         buscarButton = new JButton("Filtrar Vendas");
         buscarButton.setBackground(new Color(0, 102, 204));
@@ -134,8 +130,8 @@ public class RelatorioVendasScreen extends JFrame {
                 JOptionPane.showMessageDialog(this, "Nenhuma venda carregada no período selecionado.", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            Date inicio = (Date) dataInicioSpinner.getValue();
-            Date fim = (Date) dataFimSpinner.getValue();
+            Date inicio = dataInicioPicker.getValue();
+            Date fim = dataFimPicker.getValue();
             PdfGenerator.gerarPdfRelatorioVendas(vendasCarregadas, inicio, fim);
             JOptionPane.showMessageDialog(this, "Relatório de Vendas PDF gerado com sucesso!", "Exportação PDF", JOptionPane.INFORMATION_MESSAGE);
         });
@@ -165,8 +161,8 @@ public class RelatorioVendasScreen extends JFrame {
 
     private void buscarVendas() {
         tableModel.setRowCount(0);
-        Date dataInicio = (Date) dataInicioSpinner.getValue();
-        Date dataFim = (Date) dataFimSpinner.getValue();
+        Date dataInicio = dataInicioPicker.getValue();
+        Date dataFim = dataFimPicker.getValue();
 
         try {
             VendaDAO dao = new VendaDAO();

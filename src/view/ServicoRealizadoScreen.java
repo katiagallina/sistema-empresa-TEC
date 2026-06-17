@@ -25,14 +25,14 @@ public class ServicoRealizadoScreen extends JDialog {
 
     private JComboBox<Cliente> cbClientes;
     private JTextField txtDescricao;
-    private JSpinner spinData;
+    private util.DatePicker spinData;
     private JTextField txtValor;
     private JComboBox<String> cbFormaPagamento;
     private JSpinner spinParcelas;
     private JTextField txtValorParcela;
 
-    private JSpinner spinInicio;
-    private JSpinner spinFim;
+    private util.DatePicker spinInicio;
+    private util.DatePicker spinFim;
 
     private JLabel lblTotalGeral;
     private JLabel lblTotalDinheiro;
@@ -56,13 +56,11 @@ public class ServicoRealizadoScreen extends JDialog {
         filtroPanel.add(new JLabel("Data Início:"));
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.MONTH, -1);
-        spinInicio = new JSpinner(new SpinnerDateModel(cal.getTime(), null, null, Calendar.DAY_OF_MONTH));
-        spinInicio.setEditor(new JSpinner.DateEditor(spinInicio, "dd/MM/yyyy"));
+        spinInicio = new util.DatePicker(cal.getTime());
         filtroPanel.add(spinInicio);
 
         filtroPanel.add(new JLabel("Data Fim:"));
-        spinFim = new JSpinner(new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH));
-        spinFim.setEditor(new JSpinner.DateEditor(spinFim, "dd/MM/yyyy"));
+        spinFim = new util.DatePicker(new Date());
         filtroPanel.add(spinFim);
 
         JButton btnFiltrar = new JButton("Filtrar Serviços");
@@ -119,8 +117,7 @@ public class ServicoRealizadoScreen extends JDialog {
         gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0.0;
         formPanel.add(new JLabel("Data do Serviço:"), gbc);
         gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 1.0;
-        spinData = new JSpinner(new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH));
-        spinData.setEditor(new JSpinner.DateEditor(spinData, "dd/MM/yyyy"));
+        spinData = new util.DatePicker(new Date());
         formPanel.add(spinData, gbc);
 
         gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0.0;
@@ -272,8 +269,8 @@ public class ServicoRealizadoScreen extends JDialog {
 
     private void carregarServicos() {
         tableModel.setRowCount(0);
-        Date inicio = (Date) spinInicio.getValue();
-        Date fim = (Date) spinFim.getValue();
+        Date inicio = spinInicio.getValue();
+        Date fim = spinFim.getValue();
 
         try {
             ServicoRealizadoDAO dao = new ServicoRealizadoDAO();
@@ -356,7 +353,7 @@ public class ServicoRealizadoScreen extends JDialog {
             String pgto = (String) cbFormaPagamento.getSelectedItem();
             int parcelas = (int) spinParcelas.getValue();
             double vlrParcela = Double.parseDouble(txtValorParcela.getText().trim().replace(",", "."));
-            Date data = (Date) spinData.getValue();
+            Date data = spinData.getValue();
 
             ServicoRealizadoDAO dao = new ServicoRealizadoDAO();
 
@@ -424,8 +421,8 @@ public class ServicoRealizadoScreen extends JDialog {
             return;
         }
 
-        Date inicio = (Date) spinInicio.getValue();
-        Date fim = (Date) spinFim.getValue();
+        Date inicio = spinInicio.getValue();
+        Date fim = spinFim.getValue();
 
         try {
             ServicoRealizadoDAO dao = new ServicoRealizadoDAO();

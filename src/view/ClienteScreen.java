@@ -34,19 +34,18 @@ public class ClienteScreen extends JDialog {
         setLocationRelativeTo(owner);
         setLayout(new BorderLayout(10, 10));
 
-        // 🔹 Painel Superior (Pesquisa)
+        // 🔹 Painel Central (Tabela + Form)
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        splitPane.setDividerLocation(380);
+
+        // Painel Superior (Pesquisa) - Será adicionado ao lado direito
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         searchPanel.setBorder(BorderFactory.createTitledBorder("Pesquisar Cliente"));
         searchPanel.add(new JLabel("Nome:"));
-        txtPesquisa = new JTextField(30);
+        txtPesquisa = new JTextField(15);
         searchPanel.add(txtPesquisa);
         JButton btnPesquisar = new JButton("Pesquisar");
         searchPanel.add(btnPesquisar);
-        add(searchPanel, BorderLayout.NORTH);
-
-        // 🔹 Painel Central (Tabela + Form)
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        splitPane.setDividerLocation(500);
 
         // Tabela
         tableModel = new DefaultTableModel() {
@@ -63,7 +62,10 @@ public class ClienteScreen extends JDialog {
 
         table = new JTable(tableModel);
         JScrollPane scrollTable = new JScrollPane(table);
-        splitPane.setLeftComponent(scrollTable);
+
+        JPanel rightPanel = new JPanel(new BorderLayout(5, 5));
+        rightPanel.add(searchPanel, BorderLayout.NORTH);
+        rightPanel.add(scrollTable, BorderLayout.CENTER);
 
         // Form
         JPanel formPanel = new JPanel(new GridBagLayout());
@@ -119,11 +121,12 @@ public class ClienteScreen extends JDialog {
         formButtons.add(btnExcluir);
         formButtons.add(btnLimpar);
 
-        JPanel rightContainer = new JPanel(new BorderLayout());
-        rightContainer.add(formPanel, BorderLayout.CENTER);
-        rightContainer.add(formButtons, BorderLayout.SOUTH);
+        JPanel leftContainer = new JPanel(new BorderLayout());
+        leftContainer.add(formPanel, BorderLayout.CENTER);
+        leftContainer.add(formButtons, BorderLayout.SOUTH);
 
-        splitPane.setRightComponent(rightContainer);
+        splitPane.setLeftComponent(leftContainer);
+        splitPane.setRightComponent(rightPanel);
         add(splitPane, BorderLayout.CENTER);
 
         // 🔹 Ações
