@@ -45,7 +45,7 @@ public class ProductFormScreen extends JDialog {
         txtQuantidade = new JTextField();
         formPanel.add(txtQuantidade);
 
-        formPanel.add(new JLabel("Tipo de Venda:"));
+        formPanel.add(new JLabel("Unidade de Medida:"));
         cbTipoVenda = new JComboBox<>(new String[]{"UNIDADE", "METRO", "PAR", "SERVICO"});
         formPanel.add(cbTipoVenda);
 

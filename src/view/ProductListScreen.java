@@ -43,7 +43,7 @@ public class ProductListScreen extends JDialog {
         tableModel.addColumn("Preço de Custo");
         tableModel.addColumn("Preço de Venda");
         tableModel.addColumn("Estoque");
-        tableModel.addColumn("Tipo de Venda");
+        tableModel.addColumn("Unidade de Medida");
 
         // Tabela
         table = new JTable(tableModel);
