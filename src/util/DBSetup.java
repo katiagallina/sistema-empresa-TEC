@@ -78,7 +78,6 @@ public class DBSetup {
                         ")");
                 System.out.println("Tabela 'ordem_servico_itens' verificada/criada.");
 
-                // Recriar tabela vendas para ser idêntica à foto do usuário
                 stmt.executeUpdate("DROP TABLE IF EXISTS vendas");
                 stmt.executeUpdate("CREATE TABLE vendas (" +
                         "id INT AUTO_INCREMENT PRIMARY KEY, " +
@@ -95,6 +94,20 @@ public class DBSetup {
                         "FOREIGN KEY (ordem_servico_id) REFERENCES ordem_servico(id)" +
                         ")");
                 System.out.println("Tabela 'vendas' recriada com sucesso.");
+
+                // Criar tabela de serviços realizados
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS servicos_realizados (" +
+                        "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                        "data_servico DATETIME DEFAULT CURRENT_TIMESTAMP, " +
+                        "cliente_id INT, " +
+                        "descricao_servico VARCHAR(255) NOT NULL, " +
+                        "valor DECIMAL(10,2) NOT NULL, " +
+                        "forma_pagamento ENUM('DINHEIRO', 'PIX', 'CHEQUE', 'BOLETO') NOT NULL, " +
+                        "num_parcelas INT DEFAULT 1, " +
+                        "valor_parcela DECIMAL(10,2) NOT NULL, " +
+                        "FOREIGN KEY (cliente_id) REFERENCES clientes(id)" +
+                        ")");
+                System.out.println("Tabela 'servicos_realizados' verificada/criada.");
             }
             System.out.println("Banco de dados configurado com sucesso!");
         } catch (Exception e) {

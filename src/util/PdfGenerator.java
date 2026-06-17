@@ -339,4 +339,79 @@ public class PdfGenerator {
             System.out.println("Erro ao gerar PDF de Relatório de Clientes: " + e.getMessage());
         }
     }
+
+    public static void gerarPdfRelatorioServicosRealizados(List<ServicoRealizado> servicos, double totalDinheiro, double totalPix, double totalCheque, double totalBoleto, double totalGeral, java.util.Date inicio, java.util.Date fim) {
+        try {
+            String dest = "relatorio_servicos_realizados.pdf";
+            PdfWriter writer = new PdfWriter(dest);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
+
+            SimpleDateFormat dateSdf = new SimpleDateFormat("dd/MM/yyyy");
+            adicionarCabecalhoEmpresa(document, "RELATÓRIO DE SERVIÇOS REALIZADOS E FLUXO DE CAIXA\nPeríodo: " + dateSdf.format(inicio) + " a " + dateSdf.format(fim));
+
+            // Tabela de Serviços
+            float[] columnWidths = {70f, 120f, 150f, 60f, 80f, 40f, 60f};
+            Table table = new Table(columnWidths);
+
+            table.addCell(new Cell().add(new Paragraph("Data")).setBackgroundColor(COLOR_PRIMARY).setFontColor(ColorConstants.WHITE).setBold());
+            table.addCell(new Cell().add(new Paragraph("Cliente")).setBackgroundColor(COLOR_PRIMARY).setFontColor(ColorConstants.WHITE).setBold());
+            table.addCell(new Cell().add(new Paragraph("Serviço Renderizado")).setBackgroundColor(COLOR_PRIMARY).setFontColor(ColorConstants.WHITE).setBold());
+            table.addCell(new Cell().add(new Paragraph("Valor Total")).setBackgroundColor(COLOR_PRIMARY).setFontColor(ColorConstants.WHITE).setBold());
+            table.addCell(new Cell().add(new Paragraph("Forma Pgto")).setBackgroundColor(COLOR_PRIMARY).setFontColor(ColorConstants.WHITE).setBold());
+            table.addCell(new Cell().add(new Paragraph("Parc.")).setBackgroundColor(COLOR_PRIMARY).setFontColor(ColorConstants.WHITE).setBold());
+            table.addCell(new Cell().add(new Paragraph("Vlr Parcela")).setBackgroundColor(COLOR_PRIMARY).setFontColor(ColorConstants.WHITE).setBold());
+
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+            ClienteDAO clienteDAO = new ClienteDAO();
+
+            for (ServicoRealizado sr : servicos) {
+                String clienteNome = "";
+                try {
+                    Cliente c = clienteDAO.buscarPorId(sr.getClienteId());
+                    clienteNome = c != null ? c.getNome() : "ID: " + sr.getClienteId();
+                } catch (Exception ex) {
+                    clienteNome = "ID: " + sr.getClienteId();
+                }
+
+                table.addCell(new Cell().add(new Paragraph(sr.getDataServico() != null ? sdf.format(sr.getDataServico()) : "").setFontSize(8)));
+                table.addCell(new Cell().add(new Paragraph(clienteNome).setFontSize(8)));
+                table.addCell(new Cell().add(new Paragraph(sr.getDescricaoServico()).setFontSize(8)));
+                table.addCell(new Cell().add(new Paragraph(String.format("R$ %.2f", sr.getValor())).setFontSize(8)));
+                table.addCell(new Cell().add(new Paragraph(sr.getFormaPagamento()).setFontSize(8)));
+                table.addCell(new Cell().add(new Paragraph(String.valueOf(sr.getNumParcelas())).setFontSize(8)));
+                table.addCell(new Cell().add(new Paragraph(String.format("R$ %.2f", sr.getValorParcela())).setFontSize(8)));
+            }
+
+            document.add(table.setMarginBottom(15));
+
+            // Fluxo de Caixa Resumo
+            document.add(new Paragraph("RESUMO FLUXO DE CAIXA (FORMA DE PAGAMENTO SEPARADA)").setBold().setFontColor(COLOR_PRIMARY).setFontSize(11).setMarginBottom(5));
+            
+            float[] flowWidths = {200f, 200f};
+            Table flowTable = new Table(flowWidths);
+            flowTable.addCell(new Cell().add(new Paragraph("Forma de Pagamento")).setBackgroundColor(COLOR_SECONDARY).setBold());
+            flowTable.addCell(new Cell().add(new Paragraph("Valor Total Somado")).setBackgroundColor(COLOR_SECONDARY).setBold());
+
+            flowTable.addCell(new Cell().add(new Paragraph("DINHEIRO")));
+            flowTable.addCell(new Cell().add(new Paragraph(String.format("R$ %.2f", totalDinheiro))));
+
+            flowTable.addCell(new Cell().add(new Paragraph("PIX")));
+            flowTable.addCell(new Cell().add(new Paragraph(String.format("R$ %.2f", totalPix))));
+
+            flowTable.addCell(new Cell().add(new Paragraph("CHEQUE")));
+            flowTable.addCell(new Cell().add(new Paragraph(String.format("R$ %.2f", totalCheque))));
+
+            flowTable.addCell(new Cell().add(new Paragraph("BOLETO (Soma das Parcelas)")));
+            flowTable.addCell(new Cell().add(new Paragraph(String.format("R$ %.2f", totalBoleto))));
+
+            flowTable.addCell(new Cell().add(new Paragraph("VALOR TOTAL FATURADO").setBold().setFontColor(COLOR_PRIMARY)));
+            flowTable.addCell(new Cell().add(new Paragraph(String.format("R$ %.2f", totalGeral)).setBold().setFontColor(COLOR_PRIMARY)));
+
+            document.add(flowTable);
+            document.close();
+        } catch (FileNotFoundException e) {
+            System.out.println("Erro ao gerar PDF de Relatório de Serviços Realizados: " + e.getMessage());
+        }
+    }
 }

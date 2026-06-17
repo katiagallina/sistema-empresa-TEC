@@ -48,7 +48,8 @@ public class MainScreen extends JFrame {
         JButton btnDashboard = createMenuButton("🏠  Dashboard");
         JButton btnClientes = createMenuButton("👥  Clientes");
         JButton btnProdutos = createMenuButton("📦  Produtos");
-        JButton btnServicos = createMenuButton("🛠️  Serviços");
+        JButton btnServicos = createMenuButton("🛠️  Serviços Base");
+        JButton btnServicosRealizados = createMenuButton("📝  Serviços Realizados");
         JButton btnOrcamentos = createMenuButton("📄  Orçamentos");
         JButton btnFinalizarOS = createMenuButton("✅  Finalizar OS");
         JButton btnVendasDirect = createMenuButton("💰  Venda Rápida");
@@ -62,6 +63,8 @@ public class MainScreen extends JFrame {
         sideBar.add(btnProdutos);
         sideBar.add(Box.createVerticalStrut(8));
         sideBar.add(btnServicos);
+        sideBar.add(Box.createVerticalStrut(8));
+        sideBar.add(btnServicosRealizados);
         sideBar.add(Box.createVerticalStrut(8));
         sideBar.add(btnOrcamentos);
         sideBar.add(Box.createVerticalStrut(8));
@@ -146,6 +149,11 @@ public class MainScreen extends JFrame {
         btnServicos.addActionListener(e -> {
             ServicoScreen ss = new ServicoScreen(this);
             ss.setVisible(true);
+            carregarDashboard();
+        });
+        btnServicosRealizados.addActionListener(e -> {
+            ServicoRealizadoScreen srs = new ServicoRealizadoScreen(this);
+            srs.setVisible(true);
             carregarDashboard();
         });
         btnOrcamentos.addActionListener(e -> {
