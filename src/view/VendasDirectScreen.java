@@ -30,13 +30,29 @@ public class VendasDirectScreen extends JDialog {
 
     public VendasDirectScreen(Frame owner) {
         super(owner, "Lançamento de Vendas Diárias - TEC Energia", true);
-        setSize(500, 400);
+        setSize(500, 440);
         setLocationRelativeTo(owner);
-        setLayout(new GridBagLayout());
+        setLayout(new BorderLayout(10, 10));
         
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        // 🔹 Header Panel (Banner)
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(235, 242, 250));
+        headerPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(210, 220, 230)),
+            BorderFactory.createEmptyBorder(12, 15, 12, 15)
+        ));
+        
+        JLabel lblHeaderTitle = new JLabel("Venda Rápida / Caixa");
+        lblHeaderTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblHeaderTitle.setForeground(new Color(33, 37, 41));
+        
+        JLabel lblHeaderDesc = new JLabel("Lance saídas rápidas de estoque ou faturamento direto de serviços");
+        lblHeaderDesc.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblHeaderDesc.setForeground(new Color(100, 110, 120));
+        
+        headerPanel.add(lblHeaderTitle, BorderLayout.NORTH);
+        headerPanel.add(lblHeaderDesc, BorderLayout.SOUTH);
+        add(headerPanel, BorderLayout.NORTH);
 
         // Carregar Itens
         try {
@@ -60,50 +76,85 @@ public class VendasDirectScreen extends JDialog {
             e.printStackTrace();
         }
 
+        // Form Panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
         // Components
-        gbc.gridx = 0; gbc.gridy = 0;
-        add(new JLabel("Pesquisar Item:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.0;
+        JLabel lblItem = new JLabel("Pesquisar Item:");
+        lblItem.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblItem, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
         cbItens = new JComboBox<>(allItems.toArray());
+        cbItens.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         cbItens.setEditable(true);
-        add(cbItens, gbc);
+        formPanel.add(cbItens, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0.0;
-        add(new JLabel("Descrição da Venda:"), gbc);
+        JLabel lblDesc = new JLabel("Descrição da Venda:");
+        lblDesc.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblDesc, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 1;
         txtDescricao = new JTextField();
-        add(txtDescricao, gbc);
+        txtDescricao.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(txtDescricao, gbc);
 
         gbc.gridx = 0; gbc.gridy = 2;
-        add(new JLabel("Quantidade:"), gbc);
+        JLabel lblQtd = new JLabel("Quantidade:");
+        lblQtd.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblQtd, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 2;
         txtQuantidade = new JTextField("1.0");
-        add(txtQuantidade, gbc);
+        txtQuantidade.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(txtQuantidade, gbc);
 
         gbc.gridx = 0; gbc.gridy = 3;
-        add(new JLabel("Valor Total Cobrado (R$):"), gbc);
+        JLabel lblVal = new JLabel("Valor Total Cobrado (R$):");
+        lblVal.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblVal, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 3;
         txtValorTotal = new JTextField();
-        add(txtValorTotal, gbc);
+        txtValorTotal.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(txtValorTotal, gbc);
 
         gbc.gridx = 0; gbc.gridy = 4;
-        add(new JLabel("Forma de Pagamento:"), gbc);
+        JLabel lblPg = new JLabel("Forma de Pagamento:");
+        lblPg.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblPg, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 4;
         cbFormaPagamento = new JComboBox<>(new String[]{"PIX", "DINHEIRO", "BOLETO", "CARTAO", "TRANSFERENCIA"});
-        add(cbFormaPagamento, gbc);
+        cbFormaPagamento.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(cbFormaPagamento, gbc);
+
+        add(formPanel, BorderLayout.CENTER);
 
         // Botões
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 15));
+        
         JButton btnRegistrar = new JButton("Confirmar Venda");
-        btnRegistrar.setBackground(new Color(0, 102, 204));
+        btnRegistrar.setBackground(new Color(40, 167, 69)); // Verde
         btnRegistrar.setForeground(Color.WHITE);
-        btnRegistrar.setFont(new Font("Arial", Font.BOLD, 12));
+        btnRegistrar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnRegistrar.setFocusPainted(false);
+        
         JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnCancelar.setFocusPainted(false);
+        
         buttonPanel.add(btnRegistrar);
         buttonPanel.add(btnCancelar);
 
-        gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 2;
-        add(buttonPanel, gbc);
+        add(buttonPanel, BorderLayout.SOUTH);
 
         // Listeners
         cbItens.addActionListener(e -> selectItem());

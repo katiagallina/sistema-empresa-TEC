@@ -4,6 +4,7 @@ import dao.ServicoDAO;
 import model.Servico;
 
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.SQLException;
@@ -27,23 +28,60 @@ public class ServicoScreen extends JDialog {
 
     public ServicoScreen(Frame owner) {
         super(owner, "Cadastro de Serviços - TEC Energia", true);
-        setSize(850, 500);
+        setSize(850, 540);
         setLocationRelativeTo(owner);
         setLayout(new BorderLayout(10, 10));
 
-        // Painel Superior (Pesquisa)
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchPanel.setBorder(BorderFactory.createTitledBorder("Pesquisar Serviço"));
-        searchPanel.add(new JLabel("Nome:"));
-        txtPesquisa = new JTextField(30);
-        searchPanel.add(txtPesquisa);
-        JButton btnPesquisar = new JButton("Pesquisar");
-        searchPanel.add(btnPesquisar);
-        add(searchPanel, BorderLayout.NORTH);
+        // 🔹 Header Panel (Banner)
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(235, 242, 250));
+        headerPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(210, 220, 230)),
+            BorderFactory.createEmptyBorder(12, 15, 12, 15)
+        ));
+        
+        JLabel lblHeaderTitle = new JLabel("Cadastro de Serviços Base");
+        lblHeaderTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblHeaderTitle.setForeground(new Color(33, 37, 41));
+        
+        JLabel lblHeaderDesc = new JLabel("Defina a base de dados de serviços prestados e suas respectivas taxas de cobrança");
+        lblHeaderDesc.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblHeaderDesc.setForeground(new Color(100, 110, 120));
+        
+        headerPanel.add(lblHeaderTitle, BorderLayout.NORTH);
+        headerPanel.add(lblHeaderDesc, BorderLayout.SOUTH);
+        add(headerPanel, BorderLayout.NORTH);
 
         // Painel Central (Tabela + Form)
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        splitPane.setDividerLocation(450);
+        splitPane.setDividerLocation(380);
+
+        // Painel Superior (Pesquisa) - Será adicionado ao lado direito
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        TitledBorder searchTitle = BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(218, 224, 230), 1, true),
+            "Pesquisar Serviço",
+            TitledBorder.LEFT,
+            TitledBorder.TOP,
+            new Font("Segoe UI", Font.BOLD, 12),
+            new Color(55, 71, 79)
+        );
+        searchPanel.setBorder(BorderFactory.createCompoundBorder(searchTitle, BorderFactory.createEmptyBorder(5, 8, 5, 8)));
+        
+        JLabel lblPesq = new JLabel("Nome:");
+        lblPesq.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        searchPanel.add(lblPesq);
+        
+        txtPesquisa = new JTextField(15);
+        txtPesquisa.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        searchPanel.add(txtPesquisa);
+        
+        JButton btnPesquisar = new JButton("Pesquisar");
+        btnPesquisar.setBackground(new Color(0, 102, 204));
+        btnPesquisar.setForeground(Color.WHITE);
+        btnPesquisar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnPesquisar.setFocusPainted(false);
+        searchPanel.add(btnPesquisar);
 
         // Tabela
         tableModel = new DefaultTableModel() {
@@ -58,48 +96,95 @@ public class ServicoScreen extends JDialog {
         tableModel.addColumn("Valor Base");
 
         table = new JTable(tableModel);
+        table.setRowHeight(25);
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 11));
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        table.setSelectionBackground(new Color(225, 235, 248));
+        table.setSelectionForeground(Color.BLACK);
+        
         JScrollPane scrollTable = new JScrollPane(table);
-        splitPane.setLeftComponent(scrollTable);
+
+        JPanel rightPanel = new JPanel(new BorderLayout(5, 5));
+        rightPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
+        rightPanel.add(searchPanel, BorderLayout.NORTH);
+        rightPanel.add(scrollTable, BorderLayout.CENTER);
 
         // Form
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createTitledBorder("Formulário do Serviço"));
+        TitledBorder formTitle = BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(218, 224, 230), 1, true),
+            "Formulário do Serviço",
+            TitledBorder.LEFT,
+            TitledBorder.TOP,
+            new Font("Segoe UI", Font.BOLD, 12),
+            new Color(55, 71, 79)
+        );
+        formPanel.setBorder(BorderFactory.createCompoundBorder(formTitle, BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+        
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         gbc.gridx = 0; gbc.gridy = 0;
-        formPanel.add(new JLabel("Nome/Descrição:"), gbc);
+        JLabel lblNome = new JLabel("Nome/Descrição:");
+        lblNome.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblNome, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
         txtNome = new JTextField();
+        txtNome.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         formPanel.add(txtNome, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0.0;
-        formPanel.add(new JLabel("Tipo Cobrança:"), gbc);
+        JLabel lblTipo = new JLabel("Tipo Cobrança:");
+        lblTipo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblTipo, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 1; gbc.weightx = 1.0;
         cbTipo = new JComboBox<>(new String[]{"VALOR_FIXO", "POR_HORA"});
+        cbTipo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         formPanel.add(cbTipo, gbc);
 
         gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0.0;
-        formPanel.add(new JLabel("Valor Base (R$):"), gbc);
+        JLabel lblValor = new JLabel("Valor Base (R$):");
+        lblValor.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formPanel.add(lblValor, gbc);
+        
         gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 1.0;
         txtValorBase = new JTextField();
+        txtValorBase.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         formPanel.add(txtValorBase, gbc);
 
         // Botões do Form
-        JPanel formButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JPanel formButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        
         btnSalvar = new JButton("Salvar");
+        btnSalvar.setBackground(new Color(40, 167, 69));
+        btnSalvar.setForeground(Color.WHITE);
+        btnSalvar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnSalvar.setFocusPainted(false);
+        
         btnExcluir = new JButton("Excluir");
+        btnExcluir.setBackground(new Color(220, 53, 69));
+        btnExcluir.setForeground(Color.WHITE);
+        btnExcluir.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnExcluir.setFocusPainted(false);
+        
         btnLimpar = new JButton("Limpar");
+        btnLimpar.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnLimpar.setFocusPainted(false);
+        
         formButtons.add(btnSalvar);
         formButtons.add(btnExcluir);
         formButtons.add(btnLimpar);
 
-        JPanel rightContainer = new JPanel(new BorderLayout());
-        rightContainer.add(formPanel, BorderLayout.CENTER);
-        rightContainer.add(formButtons, BorderLayout.SOUTH);
+        JPanel leftContainer = new JPanel(new BorderLayout());
+        leftContainer.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 0));
+        leftContainer.add(formPanel, BorderLayout.CENTER);
+        leftContainer.add(formButtons, BorderLayout.SOUTH);
 
-        splitPane.setRightComponent(rightContainer);
+        splitPane.setLeftComponent(leftContainer);
+        splitPane.setRightComponent(rightPanel);
         add(splitPane, BorderLayout.CENTER);
 
         // Ações

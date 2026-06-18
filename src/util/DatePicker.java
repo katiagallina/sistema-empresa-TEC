@@ -68,7 +68,7 @@ public class DatePicker extends JPanel {
 
         public CalendarDialog(Window owner, Date initialDate) {
             super(owner, "Selecionar Data", ModalityType.APPLICATION_MODAL);
-            setSize(320, 280);
+            setSize(360, 300);
             setLocationRelativeTo(owner);
             setLayout(new BorderLayout(5, 5));
 
@@ -108,6 +108,7 @@ public class DatePicker extends JPanel {
                 dayButtons[i] = new JButton();
                 dayButtons[i].setFocusPainted(false);
                 dayButtons[i].setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                dayButtons[i].setMargin(new Insets(0, 0, 0, 0));
                 int index = i;
                 dayButtons[i].addActionListener(e -> {
                     String text = dayButtons[index].getText();

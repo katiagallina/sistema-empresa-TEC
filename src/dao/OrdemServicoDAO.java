@@ -51,7 +51,8 @@ public class OrdemServicoDAO {
                             }
 
                             // 2. Se a OS for finalizada, dar baixa no estoque e registrar a venda correspondente
-                            if ("FINALIZADA".equals(ordemServico.getStatus())) {
+                            String osStatus = ordemServico.getStatus();
+                            if ("FINALIZADA".equals(osStatus) || "PAGO".equals(osStatus) || "PENDENTE".equals(osStatus)) {
                                 double custoTotal = 0.0;
                                 int itemId = 0;
 
@@ -138,7 +139,7 @@ public class OrdemServicoDAO {
     }
 
     public List<OrdemServico> listarPorPeriodo(java.util.Date dataInicio, java.util.Date dataFim) throws SQLException {
-        String sql = "SELECT * FROM ordem_servico WHERE data BETWEEN ? AND ? AND status = 'FINALIZADA' ORDER BY id DESC";
+        String sql = "SELECT * FROM ordem_servico WHERE data BETWEEN ? AND ? AND status IN ('FINALIZADA', 'PAGO', 'PENDENTE') ORDER BY id DESC";
         List<OrdemServico> ordens = new ArrayList<>();
 
         try (Connection conn = Conexao.getConnection();
@@ -159,5 +160,51 @@ public class OrdemServicoDAO {
             }
         }
         return ordens;
+    }
+
+    public void atualizarStatusEPagamento(int osId, String novoStatus, String novaFormaPagamento) throws SQLException {
+        String sqlOS = "UPDATE ordem_servico SET status = ? WHERE id = ?";
+        String sqlVendas = "UPDATE vendas SET forma_pagamento = ? WHERE ordem_servico_id = ?";
+        
+        try (Connection conn = Conexao.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                try (PreparedStatement stmt = conn.prepareStatement(sqlOS)) {
+                    stmt.setString(1, novoStatus);
+                    stmt.setInt(2, osId);
+                    stmt.executeUpdate();
+                }
+                try (PreparedStatement stmt = conn.prepareStatement(sqlVendas)) {
+                    stmt.setString(1, novaFormaPagamento);
+                    stmt.setInt(2, osId);
+                    stmt.executeUpdate();
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+
+    public OrdemServico buscarPorId(int id) throws SQLException {
+        String sql = "SELECT * FROM ordem_servico WHERE id = ?";
+        try (Connection conn = Conexao.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    OrdemServico os = new OrdemServico();
+                    os.setId(rs.getInt("id"));
+                    os.setClienteId(rs.getInt("cliente_id"));
+                    os.setDataOrdem(rs.getTimestamp("data"));
+                    os.setValorTotal(rs.getDouble("total"));
+                    os.setStatus(rs.getString("status"));
+                    return os;
+                }
+            }
+        }
+        return null;
     }
 }

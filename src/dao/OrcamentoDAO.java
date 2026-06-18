@@ -122,6 +122,61 @@ public class OrcamentoDAO {
         return null;
     }
 
+    public void atualizar(Orcamento orcamento) throws SQLException {
+        String sqlOrcamento = "UPDATE orcamentos SET cliente_id = ?, total = ?, status = ? WHERE id = ?";
+        String sqlDeleteItens = "DELETE FROM orcamento_itens WHERE orcamento_id = ?";
+        String sqlItem = "INSERT INTO orcamento_itens (orcamento_id, tipo_item, produto_id, servico_id, descricao, quantidade, valor_unitario, valor_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection conn = Conexao.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // 1. Atualiza dados do cabeçalho do orçamento
+                try (PreparedStatement stmtOrc = conn.prepareStatement(sqlOrcamento)) {
+                    stmtOrc.setInt(1, orcamento.getClienteId());
+                    stmtOrc.setDouble(2, orcamento.getValorTotal());
+                    stmtOrc.setString(3, orcamento.getStatus() != null ? orcamento.getStatus() : "ABERTO");
+                    stmtOrc.setInt(4, orcamento.getId());
+                    stmtOrc.executeUpdate();
+                }
+
+                // 2. Remove os itens antigos
+                try (PreparedStatement stmtDel = conn.prepareStatement(sqlDeleteItens)) {
+                    stmtDel.setInt(1, orcamento.getId());
+                    stmtDel.executeUpdate();
+                }
+
+                // 3. Insere os novos itens
+                try (PreparedStatement stmtItem = conn.prepareStatement(sqlItem)) {
+                    for (ItemOrcamento item : orcamento.getItens()) {
+                        stmtItem.setInt(1, orcamento.getId());
+                        stmtItem.setString(2, item.getTipoItem());
+                        if (item.getIdProduto() != null && item.getIdProduto() > 0) {
+                            stmtItem.setInt(3, item.getIdProduto());
+                        } else {
+                            stmtItem.setNull(3, Types.INTEGER);
+                        }
+                        if (item.getIdServico() != null && item.getIdServico() > 0) {
+                            stmtItem.setInt(4, item.getIdServico());
+                        } else {
+                            stmtItem.setNull(4, Types.INTEGER);
+                        }
+                        stmtItem.setString(5, item.getDescricao());
+                        stmtItem.setDouble(6, item.getQuantidade());
+                        stmtItem.setDouble(7, item.getValorUnitario());
+                        stmtItem.setDouble(8, item.getValorTotal());
+                        stmtItem.addBatch();
+                    }
+                    stmtItem.executeBatch();
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+
     public void atualizarStatus(int id, String status) throws SQLException {
         String sql = "UPDATE orcamentos SET status = ? WHERE id = ?";
         try (Connection conn = Conexao.getConnection();

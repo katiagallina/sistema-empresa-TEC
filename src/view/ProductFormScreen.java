@@ -22,32 +22,90 @@ public class ProductFormScreen extends JDialog {
         super(owner, produto == null ? "Cadastrar Produto" : "Editar Produto", ModalityType.APPLICATION_MODAL);
         this.produtoEdicao = produto;
         
-        setSize(400, 300);
+        setSize(420, 360);
         setLocationRelativeTo(owner);
-        setLayout(new BorderLayout());
+        setLayout(new BorderLayout(10, 10));
 
-        JPanel formPanel = new JPanel(new GridLayout(5, 2, 10, 10));
-        formPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // 🔹 Header Panel (Banner)
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(235, 242, 250));
+        headerPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(210, 220, 230)),
+            BorderFactory.createEmptyBorder(10, 15, 10, 15)
+        ));
+        
+        JLabel lblHeaderTitle = new JLabel(produto == null ? "Cadastrar Produto" : "Editar Produto");
+        lblHeaderTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblHeaderTitle.setForeground(new Color(33, 37, 41));
+        
+        JLabel lblHeaderDesc = new JLabel("Preencha as informações cadastrais do item");
+        lblHeaderDesc.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblHeaderDesc.setForeground(new Color(100, 110, 120));
+        
+        headerPanel.add(lblHeaderTitle, BorderLayout.NORTH);
+        headerPanel.add(lblHeaderDesc, BorderLayout.SOUTH);
+        add(headerPanel, BorderLayout.NORTH);
 
-        formPanel.add(new JLabel("Nome:"));
+        JPanel contentPanel = new JPanel(new GridBagLayout());
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Row 0
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.0;
+        JLabel lblNome = new JLabel("Nome:");
+        lblNome.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(lblNome, gbc);
+        
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
         txtNome = new JTextField();
-        formPanel.add(txtNome);
+        txtNome.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(txtNome, gbc);
 
-        formPanel.add(new JLabel("Preço de Custo (R$):"));
+        // Row 1
+        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0.0;
+        JLabel lblCusto = new JLabel("Preço de Custo (R$):");
+        lblCusto.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(lblCusto, gbc);
+        
+        gbc.gridx = 1; gbc.gridy = 1; gbc.weightx = 1.0;
         txtPrecoCusto = new JTextField();
-        formPanel.add(txtPrecoCusto);
+        txtPrecoCusto.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(txtPrecoCusto, gbc);
 
-        formPanel.add(new JLabel("Preço de Venda (R$):"));
+        // Row 2
+        gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0.0;
+        JLabel lblVenda = new JLabel("Preço de Venda (R$):");
+        lblVenda.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(lblVenda, gbc);
+        
+        gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 1.0;
         txtPrecoVenda = new JTextField();
-        formPanel.add(txtPrecoVenda);
+        txtPrecoVenda.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(txtPrecoVenda, gbc);
 
-        formPanel.add(new JLabel("Quantidade/Estoque:"));
+        // Row 3
+        gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0.0;
+        JLabel lblQtd = new JLabel("Quantidade/Estoque:");
+        lblQtd.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(lblQtd, gbc);
+        
+        gbc.gridx = 1; gbc.gridy = 3; gbc.weightx = 1.0;
         txtQuantidade = new JTextField();
-        formPanel.add(txtQuantidade);
+        txtQuantidade.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(txtQuantidade, gbc);
 
-        formPanel.add(new JLabel("Unidade de Medida:"));
+        // Row 4
+        gbc.gridx = 0; gbc.gridy = 4; gbc.weightx = 0.0;
+        JLabel lblTipo = new JLabel("Unidade de Medida:");
+        lblTipo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(lblTipo, gbc);
+        
+        gbc.gridx = 1; gbc.gridy = 4; gbc.weightx = 1.0;
         cbTipoVenda = new JComboBox<>(new String[]{"UNIDADE", "METRO", "PAR", "SERVICO"});
-        formPanel.add(cbTipoVenda);
+        cbTipoVenda.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contentPanel.add(cbTipoVenda, gbc);
 
         // Preencher se for edição
         if (produtoEdicao != null) {
@@ -58,15 +116,23 @@ public class ProductFormScreen extends JDialog {
             cbTipoVenda.setSelectedItem(produtoEdicao.getTipoVenda());
         }
 
-        JPanel buttonPanel = new JPanel();
-        JButton btnSalvar = new JButton("Salvar");
-        btnSalvar.setBackground(new Color(0, 102, 204));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 15));
+        
+        JButton btnSalvar = new JButton("Confirmar");
+        btnSalvar.setBackground(new Color(40, 167, 69)); // Verde
         btnSalvar.setForeground(Color.WHITE);
+        btnSalvar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnSalvar.setFocusPainted(false);
+        
         JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnCancelar.setFocusPainted(false);
+        
         buttonPanel.add(btnSalvar);
         buttonPanel.add(btnCancelar);
 
-        add(formPanel, BorderLayout.CENTER);
+        add(contentPanel, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.SOUTH);
 
         btnSalvar.addActionListener(e -> salvarProduto());

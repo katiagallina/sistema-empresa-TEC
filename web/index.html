@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEC Energia e Soluções - Gestão Integrada</title>
+    <meta name="description" content="Aplicativo de gestão completo para orçamentos, vendas, clientes e produtos.">
+    
+    <!-- Configurações do PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#7c3aed">
+    <link rel="apple-touch-icon" href="logo.png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Folha de Estilos -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Bibliotecas Externas (SDK Supabase, ChartJS, html2pdf) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Blobs de Fundo Animado -->
+    <div class="bg-blur-container">
+        <div class="blur-blob purple"></div>
+        <div class="blur-blob blue"></div>
+    </div>
+
+    <!-- 1. TELA DE LOGIN -->
+    <main id="auth-section" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <img src="logo.png" alt="TEC Energia e Soluções" class="auth-logo-img" style="max-height: 90px; width: auto; margin-bottom: 15px; mix-blend-mode: screen; filter: invert(1); display: block; margin-left: auto; margin-right: auto;">
+                <h1>TEC Energia e Soluções</h1>
+                <p>Faça login para acessar o sistema completo</p>
+            </div>
+            
+            <form id="login-form" autocomplete="on">
+                <div class="input-group">
+                    <label for="login-email">E-mail</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-envelope input-icon"></i>
+                        <input type="email" id="login-email" required placeholder="seuemail@empresa.com" autocomplete="email">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="login-password">Senha</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input type="password" id="login-password" required placeholder="Digite sua senha" autocomplete="current-password">
+                    </div>
+                </div>
+
+                <div id="login-error-message" class="error-badge hidden">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span id="error-text">Credenciais incorretas</span>
+                </div>
+
+                <button type="submit" id="btn-login" class="btn btn-primary btn-block">
+                    <span>Entrar</span>
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <!-- 2. ESTRUTURA PRINCIPAL DO APP -->
+    <div id="app-section" class="app-layout hidden">
+        <!-- Barra Lateral de Navegação (Desktop) -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-brand">
+                <img src="logo.png" alt="TEC Energia" class="brand-logo" style="max-height: 38px; width: auto; mix-blend-mode: screen; filter: invert(1);">
+            </div>
+            
+            <nav class="sidebar-menu">
+                <button class="nav-item active" data-view="dashboard">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-view="clients">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Clientes</span>
+                </button>
+                <button class="nav-item" data-view="products">
+                    <i class="fa-solid fa-box"></i>
+                    <span>Produtos</span>
+                </button>
+                <button class="nav-item" data-view="services">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                    <span>Serviços</span>
+                </button>
+                <button class="nav-item" data-view="budgets">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Orçamentos</span>
+                </button>
+                <button class="nav-item" data-view="os">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                    <span>Ordens de Serviço</span>
+                </button>
+                <button class="nav-item" data-view="expenses">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Despesas</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <i class="fa-regular fa-circle-user"></i>
+                    <span id="user-display-sidebar" class="user-name">-</span>
+                </div>
+                <button id="btn-logout" class="logout-btn" title="Sair do sistema">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Sair</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Área de Conteúdo Central -->
+        <div class="main-container">
+            <!-- Barra Superior (Mobile e Desktop) -->
+            <header class="top-bar">
+                <button id="btn-toggle-menu" class="menu-toggle-btn" title="Abrir Menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="top-bar-title" id="current-view-title">Dashboard</div>
+                <div class="top-bar-actions">
+                    <div class="user-badge-mobile">
+                        <span id="user-display-mobile">-</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Telas do Sistema (Carregadas via abas) -->
+            <main class="content-wrapper">
+                
+                <!-- TELA A: DASHBOARD -->
+                <section id="view-dashboard" class="view-panel">
+                    <div class="dashboard-kpi-grid">
+                        <div class="kpi-card">
+                            <div class="kpi-icon blue"><i class="fa-solid fa-wallet"></i></div>
+                            <div class="kpi-info">
+                                <h3>Faturamento Diário</h3>
+                                <span class="kpi-value" id="kpi-fat-diario">R$ 0,00</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon green"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+                            <div class="kpi-info">
+                                <h3>Faturamento Mensal</h3>
+                                <span class="kpi-value" id="kpi-fat-mensal">R$ 0,00</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon purple"><i class="fa-solid fa-sack-dollar"></i></div>
+                            <div class="kpi-info">
+                                <h3>Lucro Mensal</h3>
+                                <span class="kpi-value" id="kpi-luc-mensal">R$ 0,00</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon orange"><i class="fa-solid fa-users"></i></div>
+                            <div class="kpi-info">
+                                <h3>Total de Clientes</h3>
+                                <span class="kpi-value" id="kpi-clientes">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h2>Faturamento Diário (Mês Atual)</h2>
+                            <p>Gráfico de evolução de faturamento em tempo real</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TELA B: CLIENTES -->
+                <section id="view-clients" class="view-panel hidden">
+                    <div class="view-header">
+                        <div class="search-bar-wrapper" style="max-width: 500px;">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="client-search" placeholder="Buscar clientes por nome...">
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('modal-client')">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>Novo Cliente</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="clients-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Telefone</th>
+                                    <th>E-mail</th>
+                                    <th>Cidade</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clients-list">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TELA C: PRODUTOS -->
+                <section id="view-products" class="view-panel hidden">
+                    <div class="view-header">
+                        <div class="search-bar-wrapper" style="max-width: 500px;">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="product-search" placeholder="Buscar produtos por nome...">
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('modal-product')">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Novo Produto</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="products-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Estoque</th>
+                                    <th>Preço Venda</th>
+                                    <th>Preço Custo</th>
+                                    <th>Unidade</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-list">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TELA D: SERVIÇOS -->
+                <section id="view-services" class="view-panel hidden">
+                    <div class="view-header">
+                        <div class="search-bar-wrapper" style="max-width: 500px;">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="service-search" placeholder="Buscar serviços por nome...">
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('modal-service')">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Novo Serviço</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="services-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Tipo de Cobrança</th>
+                                    <th>Valor Base</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="services-list">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TELA E: ORÇAMENTOS -->
+                <section id="view-budgets" class="view-panel hidden">
+                    <div class="view-header">
+                        <div class="search-bar-wrapper" style="max-width: 500px;">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="budget-search" placeholder="Buscar orçamento por cliente...">
+                        </div>
+                        <button class="btn btn-primary" id="btn-new-budget">
+                            <i class="fa-solid fa-file-circle-plus"></i>
+                            <span>Criar Orçamento</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="budgets-table">
+                            <thead>
+                                <tr>
+                                    <th>Nº Orçamento</th>
+                                    <th>Cliente</th>
+                                    <th>Data</th>
+                                    <th>Valor Total</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="budgets-list">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TELA F: ORDENS DE SERVIÇO -->
+                <section id="view-os" class="view-panel hidden">
+                    <div class="view-header">
+                        <div class="search-bar-wrapper" style="max-width: 500px;">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="os-search" placeholder="Buscar O.S. por cliente...">
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="os-table">
+                            <thead>
+                                <tr>
+                                    <th>Nº O.S.</th>
+                                    <th>Cliente</th>
+                                    <th>Data</th>
+                                    <th>Valor Total</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="os-list">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- TELA G: DESPESAS -->
+                <section id="view-expenses" class="view-panel hidden">
+                    <div class="view-header">
+                        <div class="search-bar-wrapper" style="max-width: 500px;">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="expense-search" placeholder="Buscar despesas por descrição...">
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('modal-expense')">
+                            <i class="fa-solid fa-receipt"></i>
+                            <span>Adicionar Despesa</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="expenses-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Descrição</th>
+                                    <th>Forma Pagamento</th>
+                                    <th>Valor</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expenses-list">
+                                <!-- Preenchido dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- JANELAS MODAIS (POP-UPS DE FORMULÁRIO) -->
+    <!-- ======================================================== -->
+
+    <!-- A. MODAL CLIENTE -->
+    <div id="modal-client" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="client-modal-title">Novo Cliente</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-client')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="client-form">
+                <input type="hidden" id="client-id-field">
+                <div class="input-group">
+                    <label for="client-name">Nome Completo *</label>
+                    <input type="text" id="client-name" required placeholder="Digite o nome do cliente">
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="client-phone">Telefone</label>
+                        <input type="text" id="client-phone" placeholder="(00) 00000-0000">
+                    </div>
+                    <div class="input-group">
+                        <label for="client-email">E-mail</label>
+                        <input type="email" id="client-email" placeholder="cliente@email.com">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="client-address">Endereço</label>
+                        <input type="text" id="client-address" placeholder="Rua, Número, Bairro">
+                    </div>
+                    <div class="input-group">
+                        <label for="client-city">Cidade</label>
+                        <input type="text" id="client-city" placeholder="Cidade - UF">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="client-obs">Observações</label>
+                    <textarea id="client-obs" rows="3" placeholder="Informações adicionais sobre o cliente..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-client')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- B. MODAL PRODUTO -->
+    <div id="modal-product" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="product-modal-title">Novo Produto</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-product')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="product-form">
+                <input type="hidden" id="product-id-field">
+                <div class="input-group">
+                    <label for="product-name">Nome do Produto *</label>
+                    <input type="text" id="product-name" required placeholder="Nome ou descrição do item">
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="product-cost">Preço de Custo (R$) *</label>
+                        <input type="number" id="product-cost" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="product-price">Preço de Venda (R$) *</label>
+                        <input type="number" id="product-price" step="0.01" required placeholder="0.00">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="product-quantity">Estoque Inicial *</label>
+                        <input type="number" id="product-quantity" step="0.01" required placeholder="0">
+                    </div>
+                    <div class="input-group">
+                        <label for="product-unit">Unidade de Venda *</label>
+                        <select id="product-unit" required>
+                            <option value="UN">Unidade (UN)</option>
+                            <option value="METRO">Metro (M)</option>
+                            <option value="KG">Quilo (KG)</option>
+                            <option value="LITRO">Litro (L)</option>
+                            <option value="PAR">Par (PAR)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-product')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- C. MODAL SERVIÇO -->
+    <div id="modal-service" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="service-modal-title">Novo Serviço</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-service')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="service-form">
+                <input type="hidden" id="service-id-field">
+                <div class="input-group">
+                    <label for="service-name">Nome do Serviço *</label>
+                    <input type="text" id="service-name" required placeholder="Ex: Mão de obra hidráulica, Reparo elétrico">
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="service-type">Tipo de Cobrança *</label>
+                        <select id="service-type" required>
+                            <option value="VALOR_FIXO">Valor Fixo</option>
+                            <option value="POR_HORA">Valor por Hora</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="service-value">Preço Base (R$) *</label>
+                        <input type="number" id="service-value" step="0.01" required placeholder="0.00">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-service')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Serviço</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- D. MODAL DESPESA -->
+    <div id="modal-expense" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="expense-modal-title">Nova Despesa</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-expense')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="expense-form">
+                <input type="hidden" id="expense-id-field">
+                <div class="input-group">
+                    <label for="expense-desc">Descrição da Despesa *</label>
+                    <input type="text" id="expense-desc" required placeholder="Ex: Aluguel da oficina, Conta de luz">
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="expense-value">Valor (R$) *</label>
+                        <input type="number" id="expense-value" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="expense-payment">Forma de Pagamento *</label>
+                        <select id="expense-payment" required>
+                            <option value="DINHEIRO">Dinheiro</option>
+                            <option value="PIX">PIX</option>
+                            <option value="BOLETO">Boleto</option>
+                            <option value="CARTAO">Cartão de Crédito/Débito</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-expense')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Adicionar Despesa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- E. MODAL EXIBIR ORÇAMENTO & DETALHES -->
+    <div id="modal-budget-view" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 750px;">
+            <div class="modal-header">
+                <h2>Visualizar Orçamento</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-budget-view')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="budget-pdf-preview" id="budget-pdf-preview-content">
+                <!-- Conteúdo A4 formatado em tempo real pelo JS -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-budget-view')">Fechar</button>
+                <button type="button" class="btn btn-primary" id="btn-download-pdf">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Baixar PDF</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- F. CRIADOR DE ORÇAMENTOS COMPLETO (SLIDE-OUT TELA CHEIA) -->
+    <div id="budget-creator-panel" class="fullscreen-panel hidden">
+        <header class="fullscreen-header">
+            <div class="panel-title">
+                <i class="fa-solid fa-file-invoice-dollar"></i>
+                <span>Novo Orçamento</span>
+            </div>
+            <button class="btn btn-secondary btn-icon-only" id="btn-close-budget-creator" title="Fechar criador">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </header>
+        
+        <div class="creator-container">
+            <!-- Coluna Esquerda: Informações Gerais -->
+            <div class="creator-form-panel">
+                <div class="creator-section">
+                    <h2>Dados do Orçamento</h2>
+                    <div class="input-group">
+                        <label for="budget-client-select">Selecionar Cliente *</label>
+                        <select id="budget-client-select" required>
+                            <option value="">Selecione um cliente...</option>
+                            <!-- Carregado via JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="creator-section">
+                    <h2>Adicionar Itens (Produtos ou Serviços)</h2>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="budget-item-type">Tipo de Item</label>
+                            <select id="budget-item-type">
+                                <option value="PRODUTO">Produto</option>
+                                <option value="SERVICO">Serviço</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex: 2;">
+                            <label for="budget-item-select">Selecionar Item</label>
+                            <select id="budget-item-select">
+                                <option value="">Escolha um item...</option>
+                                <!-- Carregado via JS dinamicamente dependendo do tipo -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="budget-item-qty">Quantidade</label>
+                            <input type="number" id="budget-item-qty" value="1" min="0.01" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label for="budget-item-price">Valor Unitário (R$)</label>
+                            <input type="number" id="budget-item-price" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <button type="button" id="btn-add-item-to-list" class="btn btn-secondary btn-block">
+                        <i class="fa-solid fa-cart-plus"></i>
+                        <span>Adicionar Item</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Coluna Direita: Carrinho de Itens -->
+            <div class="creator-cart-panel">
+                <h2>Itens do Orçamento</h2>
+                
+                <div class="cart-items-wrapper">
+                    <table class="cart-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Tipo</th>
+                                <th>Qtd</th>
+                                <th>Unitário</th>
+                                <th>Total</th>
+                                <th>Remover</th>
+                            </tr>
+                        </thead>
+                        <tbody id="budget-items-list">
+                            <!-- Inseridos via JS -->
+                        </tbody>
+                    </table>
+                    <div id="cart-empty" class="cart-empty-state">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        <p>Nenhum item adicionado ainda.</p>
+                    </div>
+                </div>
+
+                <div class="cart-summary">
+                    <div class="summary-row">
+                        <span>Itens Cadastrados:</span>
+                        <span id="summary-items-count">0</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total Geral:</span>
+                        <span id="summary-total-value">R$ 0,00</span>
+                    </div>
+                    <button type="button" id="btn-save-budget" class="btn btn-primary btn-block" style="padding: 16px;">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        <span>Salvar Orçamento</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Navegação Inferior para Mobile -->
+    <nav class="mobile-nav-bar">
+        <button class="mobile-nav-item active" data-view="dashboard">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Dash</span>
+        </button>
+        <button class="mobile-nav-item" data-view="clients">
+            <i class="fa-solid fa-users"></i>
+            <span>Clientes</span>
+        </button>
+        <button class="mobile-nav-item" data-view="products">
+            <i class="fa-solid fa-box"></i>
+            <span>Prod</span>
+        </button>
+        <button class="mobile-nav-item" data-view="budgets">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+            <span>Orc</span>
+        </button>
+        <button class="mobile-nav-item" id="btn-mobile-more" onclick="toggleMobileMenu()">
+            <i class="fa-solid fa-bars"></i>
+            <span>Mais</span>
+        </button>
+    </nav>
+
+    <!-- Gaveta de Menu "Mais" para Mobile -->
+    <div id="mobile-menu-overlay" class="mobile-drawer-overlay hidden" onclick="toggleMobileMenu()">
+        <div class="mobile-drawer" onclick="event.stopPropagation()">
+            <div class="drawer-header">
+                <h2>Menu Principal</h2>
+                <button onclick="toggleMobileMenu()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="drawer-links">
+                <button onclick="navigateFromDrawer('services')"><i class="fa-solid fa-screwdriver-wrench"></i> Serviços</button>
+                <button onclick="navigateFromDrawer('os')"><i class="fa-solid fa-clipboard-list"></i> Ordens de Serviço</button>
+                <button onclick="navigateFromDrawer('expenses')"><i class="fa-solid fa-receipt"></i> Despesas</button>
+                <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 10px 0;">
+                <button onclick="logoutFromDrawer()" style="color: var(--color-red);"><i class="fa-solid fa-right-from-bracket"></i> Sair do Sistema</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de lógica -->
+    <script src="app.js"></script>
+</body>
+</html>
