@@ -4,6 +4,13 @@ let currentSession = null;
 let currentView = 'dashboard';
 let salesChart = null;
 
+// Lógica de Calendário e Caixa
+let currentCalendarDate = new Date();
+let allMonthEntries = [];
+let allMonthExpenses = [];
+let selectedDayEvents = [];
+let selectedDayDateStr = '';
+
 // Itens temporários do orçamento sendo criado (Carrinho)
 let budgetCart = [];
 
@@ -164,6 +171,46 @@ function setupEventListeners() {
     document.getElementById('product-form').addEventListener('submit', saveProduct);
     document.getElementById('service-form').addEventListener('submit', saveService);
     document.getElementById('expense-form').addEventListener('submit', saveExpense);
+    
+    // Evento de submit para Entrada do Caixa
+    const entryForm = document.getElementById('entry-form');
+    if (entryForm) {
+        entryForm.addEventListener('submit', saveEntry);
+    }
+    
+    // Navegação do Calendário
+    const btnPrevMonth = document.getElementById('btn-prev-month');
+    const btnNextMonth = document.getElementById('btn-next-month');
+    if (btnPrevMonth) btnPrevMonth.addEventListener('click', () => changeCalendarMonth(-1));
+    if (btnNextMonth) btnNextMonth.addEventListener('click', () => changeCalendarMonth(1));
+    
+    // Datepicker de Filtro do Caixa Diário
+    const caixaDiarioData = document.getElementById('caixa-diario-data');
+    if (caixaDiarioData) {
+        caixaDiarioData.addEventListener('change', renderDailyBalance);
+    }
+    
+    // Botões de adição rápida no modal de detalhes do dia
+    const btnDayAddEntrada = document.getElementById('btn-day-add-entrada');
+    const btnDayAddSaida = document.getElementById('btn-day-add-saida');
+    if (btnDayAddEntrada) {
+        btnDayAddEntrada.addEventListener('click', () => {
+            closeModal('modal-day-details');
+            openModal('modal-entry');
+            if (selectedDayDateStr) {
+                document.getElementById('entry-date').value = selectedDayDateStr;
+            }
+        });
+    }
+    if (btnDayAddSaida) {
+        btnDayAddSaida.addEventListener('click', () => {
+            closeModal('modal-day-details');
+            openModal('modal-expense');
+            if (selectedDayDateStr) {
+                document.getElementById('expense-date').value = selectedDayDateStr;
+            }
+        });
+    }
 
     // Barra de Pesquisa em tempo real (Debounce)
     setupSearchFilters();
@@ -180,7 +227,8 @@ function setupSearchFilters() {
         { inputId: 'service-search', fetchFn: fetchServices },
         { inputId: 'budget-search', fetchFn: fetchBudgets },
         { inputId: 'os-search', fetchFn: fetchOS },
-        { inputId: 'expense-search', fetchFn: fetchExpenses }
+        { inputId: 'entry-search', fetchFn: () => renderCaixaTables() },
+        { inputId: 'expense-search-caixa', fetchFn: () => renderCaixaTables() }
     ];
 
     filters.forEach(filter => {
@@ -215,13 +263,13 @@ function switchView(viewName) {
 
     // Atualizar títulos e classes ativas
     const viewTitles = {
-        'dashboard': 'Dashboard',
+        'dashboard': 'Calendário',
         'clients': 'Clientes',
         'products': 'Produtos',
         'services': 'Serviços',
         'budgets': 'Orçamentos',
         'os': 'Ordens de Serviço',
-        'expenses': 'Despesas'
+        'expenses': 'Caixa'
     };
     document.getElementById('current-view-title').textContent = viewTitles[viewName] || 'Sistema';
 
@@ -238,13 +286,13 @@ function switchView(viewName) {
     });
 
     // Disparar busca de dados correspondentes
-    if (viewName === 'dashboard') fetchDashboard();
+    if (viewName === 'dashboard') fetchCalendar();
     else if (viewName === 'clients') fetchClients();
     else if (viewName === 'products') fetchProducts();
     else if (viewName === 'services') fetchServices();
     else if (viewName === 'budgets') fetchBudgets();
     else if (viewName === 'os') fetchOS();
-    else if (viewName === 'expenses') fetchExpenses();
+    else if (viewName === 'expenses') fetchCaixa();
 }
 
 // Controle de Modais (Pop-ups)
@@ -262,10 +310,16 @@ function openModal(modalId) {
         document.getElementById('service-form').reset();
         document.getElementById('service-id-field').value = '';
         document.getElementById('service-modal-title').textContent = 'Novo Serviço';
+    } else if (modalId === 'modal-entry') {
+        document.getElementById('entry-form').reset();
+        document.getElementById('entry-id-field').value = '';
+        document.getElementById('entry-modal-title').textContent = 'Novo Lançamento de Entrada';
+        document.getElementById('entry-date').value = new Date().toLocaleDateString('en-CA');
     } else if (modalId === 'modal-expense') {
         document.getElementById('expense-form').reset();
         document.getElementById('expense-id-field').value = '';
-        document.getElementById('expense-modal-title').textContent = 'Nova Despesa';
+        document.getElementById('expense-modal-title').textContent = 'Nova Despesa / Saída';
+        document.getElementById('expense-date').value = new Date().toLocaleDateString('en-CA');
     }
     
     document.getElementById(modalId).classList.remove('hidden');
@@ -895,56 +949,506 @@ async function deleteOS(id) {
     } catch (e) { alert('Erro ao excluir O.S.: ' + e.message); }
 }
 
-// 🧾 DESPESAS
-async function fetchExpenses(query = '') {
+// ========================================================
+// 📅 LÓGICA DO CALENDÁRIO
+// ========================================================
+async function fetchCalendar() {
     if (!supabaseClient) return;
     try {
-        let req = supabaseClient.from('despesas').select('*');
-        if (query) req = req.ilike('descricao', `%${query}%`);
-        const { data, error } = await req.order('id', { ascending: false });
-        if (error) throw error;
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        const numDays = new Date(year, month + 1, 0).getDate();
+        
+        const startDate = new Date(year, month, 1).toISOString();
+        const endDate = new Date(year, month, numDays, 23, 59, 59).toISOString();
+        
+        // Buscar em paralelo as entradas (servicos_realizados) e ordens de servico
+        const [servicesRes, osRes] = await Promise.all([
+            supabaseClient.from('servicos_realizados').select('*, clientes(nome)').gte('data_servico', startDate).lte('data_servico', endDate),
+            supabaseClient.from('ordem_servico').select('*, clientes(nome)').gte('data', startDate).lte('data', endDate)
+        ]);
+        
+        renderCalendar(servicesRes.data || [], osRes.data || []);
+    } catch (e) {
+        console.error('Erro ao buscar calendário:', e);
+    }
+}
 
-        const list = document.getElementById('expenses-list');
-        list.innerHTML = '';
-        data.forEach(d => {
-            const tr = document.createElement('tr');
-            const dataFmt = new Date(d.data_despesa).toLocaleDateString('pt-BR');
-            tr.innerHTML = `
-                <td data-label="Data">${dataFmt}</td>
-                <td data-label="Descrição">${d.descricao}</td>
-                <td data-label="Forma Pagamento">${d.forma_pagamento}</td>
-                <td data-label="Valor" style="color:var(--color-red);">${formatCurrency(d.valor)}</td>
-                <td data-label="Ações" class="actions-cell">
-                    <button class="action-btn delete" onclick="deleteExpense(${d.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
-                </td>
-            `;
-            list.appendChild(tr);
+function renderCalendar(completedServices, ordensServico) {
+    const grid = document.getElementById('calendar-days-grid');
+    if (!grid) return;
+    
+    // Atualizar título
+    const monthYearTitle = currentCalendarDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    document.getElementById('calendar-month-year-title').textContent = monthYearTitle;
+    
+    grid.innerHTML = '';
+    
+    // Dias da semana
+    const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    weekDays.forEach(day => {
+        const div = document.createElement('div');
+        div.className = 'calendar-day-header';
+        div.textContent = day;
+        grid.appendChild(div);
+    });
+    
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const numDays = new Date(year, month + 1, 0).getDate();
+    const prevLastDay = new Date(year, month, 0).getDate();
+    
+    // Agrupar eventos
+    const eventsByDay = {};
+    for (let i = 1; i <= numDays; i++) {
+        eventsByDay[i] = [];
+    }
+    
+    completedServices.forEach(s => {
+        const day = new Date(s.data_servico).getDate();
+        if (eventsByDay[day]) {
+            eventsByDay[day].push({ type: 'completed', data: s });
+        }
+    });
+    
+    ordensServico.forEach(os => {
+        const day = new Date(os.data).getDate();
+        if (eventsByDay[day]) {
+            eventsByDay[day].push({ type: 'os', data: os });
+        }
+    });
+    
+    // 1. Dias do mês anterior
+    for (let x = firstDayIndex; x > 0; x--) {
+        const dayNum = prevLastDay - x + 1;
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day other-month';
+        cell.innerHTML = `<span class="calendar-day-number">${dayNum}</span>`;
+        grid.appendChild(cell);
+    }
+    
+    // 2. Dias do mês atual
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+    
+    for (let i = 1; i <= numDays; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day';
+        if (isCurrentMonth && today.getDate() === i) {
+            cell.classList.add('today');
+        }
+        
+        let eventsHtml = '';
+        const dayEvents = eventsByDay[i] || [];
+        
+        // Mostrar até 2 badges e depois um "+X mais"
+        const maxVisible = 2;
+        dayEvents.slice(0, maxVisible).forEach(evt => {
+            if (evt.type === 'completed') {
+                const desc = evt.data.descricao_servico;
+                eventsHtml += `<span class="calendar-badge badge-completed" title="${desc}">${desc}</span>`;
+            } else {
+                const cNome = evt.data.clientes ? evt.data.clientes.nome : 'Cliente';
+                eventsHtml += `<span class="calendar-badge badge-os" title="OS #${evt.data.id} - ${cNome}">OS #${evt.data.id} - ${cNome}</span>`;
+            }
         });
-    } catch (e) { console.error(e); }
+        
+        if (dayEvents.length > maxVisible) {
+            eventsHtml += `<span class="calendar-badge badge-more">+${dayEvents.length - maxVisible} mais</span>`;
+        }
+        
+        cell.innerHTML = `
+            <span class="calendar-day-number">${i}</span>
+            <div class="calendar-events">${eventsHtml}</div>
+        `;
+        
+        const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        cell.addEventListener('click', () => openDayDetailsModal(dayStr, dayEvents));
+        
+        grid.appendChild(cell);
+    }
+    
+    // 3. Dias do mês seguinte
+    const totalCells = firstDayIndex + numDays;
+    const remaining = 42 - totalCells;
+    for (let i = 1; i <= remaining; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day other-month';
+        cell.innerHTML = `<span class="calendar-day-number">${i}</span>`;
+        grid.appendChild(cell);
+    }
+}
+
+function changeCalendarMonth(offset) {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + offset);
+    fetchCalendar();
+}
+
+async function openDayDetailsModal(dateString, dayEvents) {
+    selectedDayDateStr = dateString;
+    selectedDayEvents = dayEvents;
+    
+    const dateParts = dateString.split('-');
+    const dateFmt = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+    document.getElementById('day-details-title').textContent = `Serviços do Dia - ${dateFmt}`;
+    
+    // Buscar também as despesas/saídas desse dia específico
+    let dayExpenses = [];
+    try {
+        const startDay = `${dateString}T00:00:00`;
+        const endDay = `${dateString}T23:59:59`;
+        const { data } = await supabaseClient.from('despesas').select('*').gte('data_despesa', startDay).lte('data_despesa', endDay);
+        dayExpenses = data || [];
+    } catch (e) {
+        console.error(e);
+    }
+    
+    // Calcular balanço rápido
+    let sumEntradas = 0;
+    let sumSaidas = 0;
+    
+    dayEvents.forEach(evt => {
+        if (evt.type === 'completed') {
+            sumEntradas += evt.data.valor;
+        }
+    });
+    dayExpenses.forEach(exp => {
+        sumSaidas += exp.valor;
+    });
+    
+    document.getElementById('day-summary-entradas').textContent = formatCurrency(sumEntradas);
+    document.getElementById('day-summary-saidas').textContent = formatCurrency(sumSaidas);
+    
+    const totalDayBalance = sumEntradas - sumSaidas;
+    const balanceElem = document.getElementById('day-summary-lucro');
+    balanceElem.textContent = formatCurrency(totalDayBalance);
+    balanceElem.classList.remove('green', 'red');
+    if (totalDayBalance > 0) balanceElem.classList.add('green');
+    else if (totalDayBalance < 0) balanceElem.classList.add('red');
+    
+    // Renderizar lista de atividades
+    const container = document.getElementById('day-events-list-container');
+    container.innerHTML = '';
+    
+    // Adicionar entradas e OS do array local
+    dayEvents.forEach(evt => {
+        const item = document.createElement('div');
+        item.className = 'day-event-item';
+        
+        if (evt.type === 'completed') {
+            const clientName = evt.data.clientes ? evt.data.clientes.nome : 'Sem Cliente';
+            item.innerHTML = `
+                <div class="day-event-info">
+                    <span class="day-event-title"><i class="fa-solid fa-arrow-up-right-from-square" style="color: #10b981; margin-right: 6px;"></i> ${evt.data.descricao_servico}</span>
+                    <span class="day-event-sub">Cliente: ${clientName} | Pagamento: ${evt.data.forma_pagamento}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="day-event-amount positive">+${formatCurrency(evt.data.valor)}</span>
+                    <button class="action-btn delete" onclick="deleteEntryFromCalendar(${evt.data.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            `;
+        } else {
+            const clientName = evt.data.clientes ? evt.data.clientes.nome : 'Sem Cliente';
+            item.innerHTML = `
+                <div class="day-event-info">
+                    <span class="day-event-title"><i class="fa-solid fa-clipboard-list" style="color: #a855f7; margin-right: 6px;"></i> Ordem de Serviço #${evt.data.id}</span>
+                    <span class="day-event-sub">Cliente: ${clientName} | Status: ${evt.data.status}</span>
+                </div>
+                <span class="day-event-amount neutral">${formatCurrency(evt.data.total)}</span>
+            `;
+        }
+        container.appendChild(item);
+    });
+    
+    // Adicionar despesas (saídas)
+    dayExpenses.forEach(exp => {
+        const item = document.createElement('div');
+        item.className = 'day-event-item';
+        item.innerHTML = `
+            <div class="day-event-info">
+                <span class="day-event-title"><i class="fa-solid fa-arrow-down-left-from-square" style="color: #ef4444; margin-right: 6px;"></i> ${exp.descricao}</span>
+                <span class="day-event-sub">Pagamento: ${exp.forma_pagamento}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="day-event-amount negative">-${formatCurrency(exp.valor)}</span>
+                <button class="action-btn delete" onclick="deleteExpenseFromCalendar(${exp.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+    
+    if (dayEvents.length === 0 && dayExpenses.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size:13.5px;"><i class="fa-solid fa-circle-info" style="margin-right: 6px;"></i>Nenhuma atividade registrada neste dia.</div>`;
+    }
+    
+    openModal('modal-day-details');
+}
+
+async function deleteEntryFromCalendar(id) {
+    if (!confirm('Deseja realmente excluir este serviço?')) return;
+    try {
+        const { error } = await supabaseClient.from('servicos_realizados').delete().eq('id', id);
+        if (error) throw error;
+        closeModal('modal-day-details');
+        fetchCalendar();
+    } catch (e) {
+        alert('Erro ao excluir serviço: ' + e.message);
+    }
+}
+
+async function deleteExpenseFromCalendar(id) {
+    if (!confirm('Deseja realmente excluir esta despesa?')) return;
+    try {
+        const { error } = await supabaseClient.from('despesas').delete().eq('id', id);
+        if (error) throw error;
+        closeModal('modal-day-details');
+        fetchCalendar();
+    } catch (e) {
+        alert('Erro ao excluir despesa: ' + e.message);
+    }
+}
+
+
+// 💰 LÓGICA DO FLUXO DE CAIXA
+async function fetchCaixa() {
+    if (!supabaseClient) return;
+    try {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const numDays = new Date(year, month + 1, 0).getDate();
+        
+        const startDate = new Date(year, month, 1).toISOString();
+        const endDate = new Date(year, month, numDays, 23, 59, 59).toISOString();
+        
+        // Definir data padrão de hoje se o input estiver vazio
+        const dateInput = document.getElementById('caixa-diario-data');
+        if (dateInput && !dateInput.value) {
+            dateInput.value = today.toLocaleDateString('en-CA');
+        }
+        
+        // Buscar em paralelo entradas, despesas e lista de clientes
+        const [entriesRes, expensesRes, clientsRes] = await Promise.all([
+            supabaseClient.from('servicos_realizados').select('*, clientes(nome)').gte('data_servico', startDate).lte('data_servico', endDate),
+            supabaseClient.from('despesas').select('*').gte('data_despesa', startDate).lte('data_despesa', endDate),
+            supabaseClient.from('clientes').select('id, nome')
+        ]);
+        
+        allMonthEntries = entriesRes.data || [];
+        allMonthExpenses = expensesRes.data || [];
+        
+        // Preencher dropdown de clientes na entrada
+        const clientSelect = document.getElementById('entry-client-select');
+        if (clientSelect && clientsRes.data) {
+            clientSelect.innerHTML = '<option value="">Selecione um cliente...</option>';
+            clientsRes.data.forEach(c => {
+                clientSelect.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+            });
+        }
+        
+        // Renderizar KPIs mensais
+        let totalEntradas = 0;
+        allMonthEntries.forEach(e => totalEntradas += e.valor);
+        
+        let totalSaidas = 0;
+        allMonthExpenses.forEach(exp => totalSaidas += exp.valor);
+        
+        document.getElementById('kpi-caixa-entradas').textContent = formatCurrency(totalEntradas);
+        document.getElementById('kpi-caixa-saidas').textContent = formatCurrency(totalSaidas);
+        document.getElementById('kpi-caixa-lucro').textContent = formatCurrency(totalEntradas - totalSaidas);
+        
+        // Atualizar tabelas e balanço diário
+        renderCaixaTables();
+        renderDailyBalance();
+    } catch (e) {
+        console.error('Erro ao buscar caixa:', e);
+    }
+}
+
+function renderCaixaTables() {
+    const entryQuery = document.getElementById('entry-search').value.toLowerCase();
+    const expenseQuery = document.getElementById('expense-search-caixa').value.toLowerCase();
+    
+    // 1. Tabela de Entradas
+    const entriesList = document.getElementById('entries-list');
+    entriesList.innerHTML = '';
+    
+    const filteredEntries = allMonthEntries.filter(e => {
+        const cNome = e.clientes ? e.clientes.nome : '';
+        const desc = e.descricao_servico || '';
+        return cNome.toLowerCase().includes(entryQuery) || desc.toLowerCase().includes(entryQuery);
+    });
+    
+    filteredEntries.forEach(e => {
+        const tr = document.createElement('tr');
+        const dateFmt = new Date(e.data_servico).toLocaleDateString('pt-BR');
+        const cNome = e.clientes ? e.clientes.nome : 'Sem Cliente';
+        
+        tr.innerHTML = `
+            <td data-label="Data">${dateFmt}</td>
+            <td data-label="Cliente">${cNome}</td>
+            <td data-label="Serviço">${e.descricao_servico}</td>
+            <td data-label="Pagamento">${e.forma_pagamento}</td>
+            <td data-label="Valor" style="color:#10b981; font-weight:600;">+${formatCurrency(e.valor)}</td>
+            <td data-label="Ações" class="actions-cell">
+                <button class="action-btn delete" onclick="deleteEntry(${e.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+        `;
+        entriesList.appendChild(tr);
+    });
+    
+    // 2. Tabela de Saídas
+    const expensesList = document.getElementById('expenses-list');
+    expensesList.innerHTML = '';
+    
+    const filteredExpenses = allMonthExpenses.filter(exp => {
+        const desc = exp.descricao || '';
+        return desc.toLowerCase().includes(expenseQuery);
+    });
+    
+    filteredExpenses.forEach(exp => {
+        const tr = document.createElement('tr');
+        const dateFmt = new Date(exp.data_despesa).toLocaleDateString('pt-BR');
+        
+        tr.innerHTML = `
+            <td data-label="Data">${dateFmt}</td>
+            <td data-label="Descrição">${exp.descricao}</td>
+            <td data-label="Pagamento">${exp.forma_pagamento}</td>
+            <td data-label="Valor" style="color:#ef4444; font-weight:600;">-${formatCurrency(exp.valor)}</td>
+            <td data-label="Ações" class="actions-cell">
+                <button class="action-btn delete" onclick="deleteExpense(${exp.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+        `;
+        expensesList.appendChild(tr);
+    });
+}
+
+function renderDailyBalance() {
+    const selectedDateStr = document.getElementById('caixa-diario-data').value;
+    if (!selectedDateStr) return;
+    
+    let sumDinheiro = 0;
+    let sumPix = 0;
+    let sumBoleto = 0;
+    let sumCartao = 0;
+    let sumLiquido = 0;
+    
+    // Somar Entradas do dia selecionado
+    allMonthEntries.forEach(e => {
+        const dateE = new Date(e.data_servico).toLocaleDateString('en-CA');
+        if (dateE === selectedDateStr) {
+            sumLiquido += e.valor;
+            if (e.forma_pagamento === 'DINHEIRO') sumDinheiro += e.valor;
+            else if (e.forma_pagamento === 'PIX') sumPix += e.valor;
+            else if (e.forma_pagamento === 'BOLETO') sumBoleto += e.valor;
+            else sumCartao += e.valor; // CHEQUE
+        }
+    });
+    
+    // Subtrair Saídas do dia selecionado
+    allMonthExpenses.forEach(exp => {
+        const dateExp = new Date(exp.data_despesa).toLocaleDateString('en-CA');
+        if (dateExp === selectedDateStr) {
+            sumLiquido -= exp.valor;
+            if (exp.forma_pagamento === 'DINHEIRO') sumDinheiro -= exp.valor;
+            else if (exp.forma_pagamento === 'PIX') sumPix -= exp.valor;
+            else if (exp.forma_pagamento === 'BOLETO') sumBoleto -= exp.valor;
+            else sumCartao -= exp.valor; // CARTAO
+        }
+    });
+    
+    // Atualizar HTML
+    document.getElementById('balance-dinheiro').textContent = formatCurrency(sumDinheiro);
+    document.getElementById('balance-pix').textContent = formatCurrency(sumPix);
+    document.getElementById('balance-boleto').textContent = formatCurrency(sumBoleto);
+    document.getElementById('balance-cartao').textContent = formatCurrency(sumCartao);
+    
+    const balanceLiqElem = document.getElementById('balance-liquido');
+    balanceLiqElem.textContent = formatCurrency(sumLiquido);
+    
+    balanceLiqElem.classList.remove('positive', 'negative');
+    if (sumLiquido > 0) balanceLiqElem.classList.add('positive');
+    else if (sumLiquido < 0) balanceLiqElem.classList.add('negative');
+}
+
+// 📂 INSERÇÃO E EXCLUSÃO DO CAIXA
+async function saveEntry(e) {
+    e.preventDefault();
+    const id = document.getElementById('entry-id-field').value;
+    const entry = {
+        data_servico: new Date(document.getElementById('entry-date').value + 'T12:00:00').toISOString(),
+        cliente_id: parseInt(document.getElementById('entry-client-select').value),
+        descricao_servico: document.getElementById('entry-desc').value.trim(),
+        valor: parseFloat(document.getElementById('entry-value').value),
+        forma_pagamento: document.getElementById('entry-payment').value,
+        num_parcelas: 1,
+        valor_parcela: parseFloat(document.getElementById('entry-value').value)
+    };
+    try {
+        let res;
+        if (id) {
+            res = await supabaseClient.from('servicos_realizados').update(entry).eq('id', id);
+        } else {
+            res = await supabaseClient.from('servicos_realizados').insert([entry]);
+        }
+        if (res.error) throw res.error;
+        closeModal('modal-entry');
+        fetchCaixa();
+        if (currentView === 'dashboard') fetchCalendar();
+    } catch (err) {
+        alert('Erro ao salvar entrada: ' + err.message);
+    }
+}
+
+async function deleteEntry(id) {
+    if (!confirm('Deseja realmente excluir este lançamento de entrada?')) return;
+    try {
+        const { error } = await supabaseClient.from('servicos_realizados').delete().eq('id', id);
+        if (error) throw error;
+        fetchCaixa();
+        if (currentView === 'dashboard') fetchCalendar();
+    } catch (e) {
+        alert('Erro ao excluir entrada: ' + e.message);
+    }
 }
 
 async function saveExpense(e) {
     e.preventDefault();
+    const id = document.getElementById('expense-id-field').value;
     const expense = {
+        data_despesa: new Date(document.getElementById('expense-date').value + 'T12:00:00').toISOString(),
         descricao: document.getElementById('expense-desc').value.trim(),
         valor: parseFloat(document.getElementById('expense-value').value),
         forma_pagamento: document.getElementById('expense-payment').value
     };
     try {
-        const { error } = await supabaseClient.from('despesas').insert([expense]);
-        if (error) throw error;
+        let res;
+        if (id) {
+            res = await supabaseClient.from('despesas').update(expense).eq('id', id);
+        } else {
+            res = await supabaseClient.from('despesas').insert([expense]);
+        }
+        if (res.error) throw res.error;
         closeModal('modal-expense');
-        fetchExpenses();
-    } catch (e) { alert('Erro ao salvar despesa: ' + e.message); }
+        fetchCaixa();
+        if (currentView === 'dashboard') fetchCalendar();
+    } catch (err) {
+        alert('Erro ao salvar despesa: ' + err.message);
+    }
 }
 
 async function deleteExpense(id) {
-    if (!confirm('Deseja realmente excluir esta despesa?')) return;
+    if (!confirm('Deseja realmente excluir este lançamento de despesa?')) return;
     try {
         const { error } = await supabaseClient.from('despesas').delete().eq('id', id);
         if (error) throw error;
-        fetchExpenses();
-    } catch (e) { alert('Erro ao excluir despesa: ' + e.message); }
+        fetchCaixa();
+        if (currentView === 'dashboard') fetchCalendar();
+    } catch (e) {
+        alert('Erro ao excluir despesa: ' + e.message);
+    }
 }
 
 

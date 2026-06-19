@@ -1,32 +1,34 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TEC Energia e Soluções - Gestão Integrada</title>
     <meta name="description" content="Aplicativo de gestão completo para orçamentos, vendas, clientes e produtos.">
-    
+
     <!-- Configurações do PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#7c3aed">
     <link rel="apple-touch-icon" href="logo.png">
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- FontAwesome para Ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Folha de Estilos -->
     <link rel="stylesheet" href="style.css">
-    
+
     <!-- Bibliotecas Externas (SDK Supabase, ChartJS, html2pdf) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
+
 <body>
     <!-- Blobs de Fundo Animado -->
     <div class="bg-blur-container">
@@ -38,17 +40,19 @@
     <main id="auth-section" class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
-                <img src="logo.png" alt="TEC Energia e Soluções" class="auth-logo-img" style="max-height: 90px; width: auto; margin-bottom: 15px; mix-blend-mode: screen; filter: invert(1); display: block; margin-left: auto; margin-right: auto;">
+                <img src="logo.png" alt="TEC Energia e Soluções" class="auth-logo-img"
+                    style="max-height: 90px; width: auto; margin-bottom: 15px; mix-blend-mode: screen; filter: invert(1); display: block; margin-left: auto; margin-right: auto;">
                 <h1>TEC Energia e Soluções</h1>
                 <p>Faça login para acessar o sistema completo</p>
             </div>
-            
+
             <form id="login-form" autocomplete="on">
                 <div class="input-group">
                     <label for="login-email">E-mail</label>
                     <div class="input-wrapper">
                         <i class="fa-regular fa-envelope input-icon"></i>
-                        <input type="email" id="login-email" required placeholder="seuemail@empresa.com" autocomplete="email">
+                        <input type="email" id="login-email" required placeholder="seuemail@empresa.com"
+                            autocomplete="email">
                     </div>
                 </div>
 
@@ -56,7 +60,8 @@
                     <label for="login-password">Senha</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-lock input-icon"></i>
-                        <input type="password" id="login-password" required placeholder="Digite sua senha" autocomplete="current-password">
+                        <input type="password" id="login-password" required placeholder="Digite sua senha"
+                            autocomplete="current-password">
                     </div>
                 </div>
 
@@ -78,9 +83,10 @@
         <!-- Barra Lateral de Navegação (Desktop) -->
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-brand">
-                <img src="logo.png" alt="TEC Energia" class="brand-logo" style="max-height: 38px; width: auto; mix-blend-mode: screen; filter: invert(1);">
+                <img src="logo.png" alt="TEC Energia" class="brand-logo"
+                    style="max-height: 38px; width: auto; mix-blend-mode: screen; filter: invert(1);">
             </div>
-            
+
             <nav class="sidebar-menu">
                 <button class="nav-item active" data-view="dashboard">
                     <i class="fa-solid fa-chart-line"></i>
@@ -141,7 +147,7 @@
 
             <!-- Telas do Sistema (Carregadas via abas) -->
             <main class="content-wrapper">
-                
+
                 <!-- TELA A: DASHBOARD -->
                 <section id="view-dashboard" class="view-panel">
                     <div class="dashboard-kpi-grid">
@@ -383,7 +389,8 @@
         <div class="modal-card">
             <div class="modal-header">
                 <h2 id="client-modal-title">Novo Cliente</h2>
-                <button class="modal-close-btn" onclick="closeModal('modal-client')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-client')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="client-form">
                 <input type="hidden" id="client-id-field">
@@ -413,10 +420,12 @@
                 </div>
                 <div class="input-group">
                     <label for="client-obs">Observações</label>
-                    <textarea id="client-obs" rows="3" placeholder="Informações adicionais sobre o cliente..."></textarea>
+                    <textarea id="client-obs" rows="3"
+                        placeholder="Informações adicionais sobre o cliente..."></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-client')">Cancelar</button>
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('modal-client')">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Salvar Cliente</button>
                 </div>
             </form>
@@ -428,7 +437,8 @@
         <div class="modal-card">
             <div class="modal-header">
                 <h2 id="product-modal-title">Novo Produto</h2>
-                <button class="modal-close-btn" onclick="closeModal('modal-product')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-product')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="product-form">
                 <input type="hidden" id="product-id-field">
@@ -463,7 +473,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-product')">Cancelar</button>
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('modal-product')">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Salvar Produto</button>
                 </div>
             </form>
@@ -475,13 +486,15 @@
         <div class="modal-card">
             <div class="modal-header">
                 <h2 id="service-modal-title">Novo Serviço</h2>
-                <button class="modal-close-btn" onclick="closeModal('modal-service')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-service')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="service-form">
                 <input type="hidden" id="service-id-field">
                 <div class="input-group">
                     <label for="service-name">Nome do Serviço *</label>
-                    <input type="text" id="service-name" required placeholder="Ex: Mão de obra hidráulica, Reparo elétrico">
+                    <input type="text" id="service-name" required
+                        placeholder="Ex: Mão de obra hidráulica, Reparo elétrico">
                 </div>
                 <div class="form-row">
                     <div class="input-group">
@@ -497,46 +510,155 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-service')">Cancelar</button>
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('modal-service')">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Salvar Serviço</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- D. MODAL DESPESA -->
+    <!-- D. MODAL DESPESA / SAÍDA -->
     <div id="modal-expense" class="modal-overlay hidden">
         <div class="modal-card">
             <div class="modal-header">
-                <h2 id="expense-modal-title">Nova Despesa</h2>
-                <button class="modal-close-btn" onclick="closeModal('modal-expense')"><i class="fa-solid fa-xmark"></i></button>
+                <h2 id="expense-modal-title">Nova Despesa / Saída</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-expense')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="expense-form">
                 <input type="hidden" id="expense-id-field">
                 <div class="input-group">
-                    <label for="expense-desc">Descrição da Despesa *</label>
+                    <label for="expense-desc">Descrição da Despesa / Saída *</label>
                     <input type="text" id="expense-desc" required placeholder="Ex: Aluguel da oficina, Conta de luz">
                 </div>
                 <div class="form-row">
                     <div class="input-group">
+                        <label for="expense-date">Data *</label>
+                        <input type="date" id="expense-date" required>
+                    </div>
+                    <div class="input-group">
                         <label for="expense-value">Valor (R$) *</label>
                         <input type="number" id="expense-value" step="0.01" required placeholder="0.00">
                     </div>
+                </div>
+                <div class="input-group">
+                    <label for="expense-payment">Forma de Pagamento *</label>
+                    <select id="expense-payment" required>
+                        <option value="DINHEIRO">Dinheiro</option>
+                        <option value="PIX">PIX</option>
+                        <option value="BOLETO">Boleto</option>
+                        <option value="CARTAO">Cartão de Crédito/Débito</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('modal-expense')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Adicionar Saída</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL NOVA ENTRADA (SERVIÇO REALIZADO) -->
+    <div id="modal-entry" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="entry-modal-title">Novo Lançamento de Entrada</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-entry')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="entry-form">
+                <input type="hidden" id="entry-id-field">
+
+                <div class="form-row">
                     <div class="input-group">
-                        <label for="expense-payment">Forma de Pagamento *</label>
-                        <select id="expense-payment" required>
-                            <option value="DINHEIRO">Dinheiro</option>
-                            <option value="PIX">PIX</option>
-                            <option value="BOLETO">Boleto</option>
-                            <option value="CARTAO">Cartão de Crédito/Débito</option>
+                        <label for="entry-date">Data *</label>
+                        <input type="date" id="entry-date" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="entry-client-select">Cliente *</label>
+                        <select id="entry-client-select" required>
+                            <option value="">Selecione um cliente...</option>
+                            <!-- Preenchido dinamicamente via JS -->
                         </select>
                     </div>
                 </div>
+
+                <div class="input-group">
+                    <label for="entry-desc">Descrição do Serviço *</label>
+                    <input type="text" id="entry-desc" required
+                        placeholder="Ex: Manutenção Elétrica, Instalação de Painel">
+                </div>
+
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="entry-value">Valor (R$) *</label>
+                        <input type="number" id="entry-value" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label for="entry-payment">Forma de Pagamento *</label>
+                        <select id="entry-payment" required>
+                            <option value="DINHEIRO">Dinheiro</option>
+                            <option value="PIX">PIX</option>
+                            <option value="BOLETO">Boleto</option>
+                            <option value="CHEQUE">Cheque</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('modal-expense')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Adicionar Despesa</button>
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('modal-entry')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Registrar Entrada</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL DETALHES DO DIA DO CALENDÁRIO -->
+    <div id="modal-day-details" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 650px;">
+            <div class="modal-header">
+                <h2 id="day-details-title">Serviços do Dia - 00/00/0000</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-day-details')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="day-details-summary">
+                <div class="day-summary-card">
+                    <h4>Total Entradas</h4>
+                    <span id="day-summary-entradas" class="green">R$ 0,00</span>
+                </div>
+                <div class="day-summary-card">
+                    <h4>Total Saídas</h4>
+                    <span id="day-summary-saidas" class="red">R$ 0,00</span>
+                </div>
+                <div class="day-summary-card">
+                    <h4>Balanço Líquido</h4>
+                    <span id="day-summary-lucro">R$ 0,00</span>
+                </div>
+            </div>
+
+            <div
+                style="margin-bottom: 12px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);">
+                Atividades do Dia</div>
+            <div class="day-events-list" id="day-events-list-container">
+                <!-- Preenchido dinamicamente via JS -->
+            </div>
+
+            <div class="modal-footer" style="gap: 12px; display: flex; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary"
+                    onclick="closeModal('modal-day-details')">Fechar</button>
+                <button type="button" class="btn btn-primary" id="btn-day-add-entrada"
+                    style="background-color: #10b981; color: #fff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);">
+                    <i class="fa-solid fa-plus"></i> Entrada
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-day-add-saida"
+                    style="background-color: #ef4444; color: #fff; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);">
+                    <i class="fa-solid fa-minus"></i> Saída
+                </button>
+            </div>
         </div>
     </div>
 
@@ -545,13 +667,15 @@
         <div class="modal-card" style="max-width: 750px;">
             <div class="modal-header">
                 <h2>Visualizar Orçamento</h2>
-                <button class="modal-close-btn" onclick="closeModal('modal-budget-view')"><i class="fa-solid fa-xmark"></i></button>
+                <button class="modal-close-btn" onclick="closeModal('modal-budget-view')"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="budget-pdf-preview" id="budget-pdf-preview-content">
                 <!-- Conteúdo A4 formatado em tempo real pelo JS -->
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-budget-view')">Fechar</button>
+                <button type="button" class="btn btn-secondary"
+                    onclick="closeModal('modal-budget-view')">Fechar</button>
                 <button type="button" class="btn btn-primary" id="btn-download-pdf">
                     <i class="fa-solid fa-file-pdf"></i>
                     <span>Baixar PDF</span>
@@ -571,7 +695,7 @@
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </header>
-        
+
         <div class="creator-container">
             <!-- Coluna Esquerda: Informações Gerais -->
             <div class="creator-form-panel">
@@ -626,7 +750,7 @@
             <!-- Coluna Direita: Carrinho de Itens -->
             <div class="creator-cart-panel">
                 <h2>Itens do Orçamento</h2>
-                
+
                 <div class="cart-items-wrapper">
                     <table class="cart-table">
                         <thead>
@@ -699,11 +823,14 @@
                 <button onclick="toggleMobileMenu()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="drawer-links">
-                <button onclick="navigateFromDrawer('services')"><i class="fa-solid fa-screwdriver-wrench"></i> Serviços</button>
-                <button onclick="navigateFromDrawer('os')"><i class="fa-solid fa-clipboard-list"></i> Ordens de Serviço</button>
+                <button onclick="navigateFromDrawer('services')"><i class="fa-solid fa-screwdriver-wrench"></i>
+                    Serviços</button>
+                <button onclick="navigateFromDrawer('os')"><i class="fa-solid fa-clipboard-list"></i> Ordens de
+                    Serviço</button>
                 <button onclick="navigateFromDrawer('expenses')"><i class="fa-solid fa-receipt"></i> Despesas</button>
                 <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 10px 0;">
-                <button onclick="logoutFromDrawer()" style="color: var(--color-red);"><i class="fa-solid fa-right-from-bracket"></i> Sair do Sistema</button>
+                <button onclick="logoutFromDrawer()" style="color: var(--color-red);"><i
+                        class="fa-solid fa-right-from-bracket"></i> Sair do Sistema</button>
             </div>
         </div>
     </div>
@@ -711,4 +838,5 @@
     <!-- Script de lógica -->
     <script src="app.js"></script>
 </body>
+
 </html>
