@@ -1115,6 +1115,31 @@ body {
         padding-bottom: 90px; /* Margem para evitar cobrir com nav bar inferior */
     }
 
+    .modal-overlay {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 12px;
+    }
+
+    .modal-card {
+        max-height: calc(100dvh - 24px);
+        overflow-y: auto;
+        padding: 18px;
+        border-radius: var(--border-radius-md);
+    }
+
+    .modal-footer {
+        position: sticky;
+        bottom: -18px;
+        z-index: 2;
+        margin-left: -18px;
+        margin-right: -18px;
+        margin-bottom: -18px;
+        padding: 14px 18px;
+        background: #0d121f;
+        flex-wrap: wrap;
+    }
+
     /* Painel de Navegação Mobile */
     .mobile-nav-bar {
         display: flex;
@@ -1247,16 +1272,116 @@ body {
     
     .creator-container {
         grid-template-columns: 1fr;
+        display: block;
+        min-height: 0;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     .creator-form-panel {
         border-right: none;
         border-bottom: 1px solid var(--border-glass);
         overflow-y: visible;
+        padding: 18px;
     }
 
     /* Transformar Tabelas do Celular em Grid Cards para Visualização Mobile */
+    .creator-cart-panel {
+        min-height: auto;
+        overflow: visible;
+        padding: 18px 18px 100px;
+    }
+
+    .cart-items-wrapper {
+        flex: none;
+        min-height: 190px;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .cart-table,
+    .cart-table tbody,
+    .cart-table tr,
+    .cart-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .cart-table thead {
+        display: none;
+    }
+
+    .cart-table tr {
+        border-bottom: 1px solid var(--border-glass);
+        padding: 12px;
+    }
+
+    .cart-table tr:last-child {
+        border-bottom: none;
+    }
+
+    .cart-table td {
+        border-bottom: none;
+        padding: 7px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        text-align: right;
+    }
+
+    .cart-table td::before {
+        color: var(--text-secondary);
+        content: "";
+        flex: 0 0 auto;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .cart-table td:nth-child(1)::before { content: "Item"; }
+    .cart-table td:nth-child(2)::before { content: "Tipo"; }
+    .cart-table td:nth-child(3)::before { content: "Qtd"; }
+    .cart-table td:nth-child(4)::before { content: "Unitario"; }
+    .cart-table td:nth-child(5)::before { content: "Total"; }
+    .cart-table td:nth-child(6)::before { content: "Remover"; }
+
+    .cart-table td:first-child {
+        align-items: flex-start;
+    }
+
+    .cart-empty-state {
+        position: static;
+        transform: none;
+        padding: 34px 16px;
+    }
+
+    .cart-summary {
+        margin-top: 12px;
+    }
+
+    .budget-pdf-preview {
+        max-height: 60dvh;
+        padding: 14px;
+        overflow: auto;
+    }
+
+    .pdf-container {
+        min-width: 620px;
+    }
+
+    .pdf-header-logo-container {
+        flex-basis: 110px;
+    }
+
+    .pdf-header-logo {
+        max-height: 70px;
+    }
+
+    .pdf-company-title {
+        font-size: 18px;
+    }
+
     .data-table thead {
         display: none; /* Oculta cabeçalhos da tabela */
     }
