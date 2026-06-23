@@ -344,9 +344,10 @@ body {
 }
 
 .sidebar-brand {
-    height: var(--topbar-height);
+    height: 120px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     padding: 0 24px;
     font-size: 19px;
@@ -1453,7 +1454,7 @@ body {
 
 /* Logos da Empresa (TEC) */
 .brand-logo {
-    max-height: 38px;
+    max-height: 85px;
     max-width: 100%;
     object-fit: contain;
     filter: invert(1);

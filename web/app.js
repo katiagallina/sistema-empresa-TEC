@@ -94,7 +94,7 @@ function initSupabase(url, key) {
         supabaseClient = createClient(url, key);
         
         supabaseClient.auth.onAuthStateChange((event, session) => {
-            handleAuthStateChange(session);
+            handleAuthStateChange(event, session);
         });
     } catch (e) {
         console.error('Erro ao inicializar Supabase Client:', e);
@@ -103,7 +103,7 @@ function initSupabase(url, key) {
 }
 
 // Tratar alteração do estado de login
-function handleAuthStateChange(session) {
+function handleAuthStateChange(event, session) {
     currentSession = session;
     
     if (session) {
@@ -112,18 +112,41 @@ function handleAuthStateChange(session) {
         document.getElementById('user-display-sidebar').textContent = session.user.email;
         document.getElementById('user-display-mobile').textContent = session.user.email.split('@')[0];
         
-        authSection.classList.add('hidden');
-        appSection.classList.remove('hidden');
+        // Verificar se precisa trocar senha (primeiro acesso ou recuperação)
+        const isRecovery = event === 'PASSWORD_RECOVERY';
+        const isFirstAccess = !session.user.user_metadata || !session.user.user_metadata.password_changed;
         
-        if (loginForm) loginForm.reset();
-        resetPasswordVisibility();
-        hideLoginError();
+        if (isRecovery || isFirstAccess) {
+            const titleEl = document.getElementById('change-password-title');
+            const descEl = document.getElementById('change-password-desc');
+            
+            if (isRecovery) {
+                if (titleEl) titleEl.textContent = 'Recuperação de Senha';
+                if (descEl) descEl.textContent = 'Defina uma nova senha de sua preferência para a sua conta.';
+            } else {
+                if (titleEl) titleEl.textContent = 'Primeiro Acesso - Alterar Senha';
+                if (descEl) descEl.textContent = 'Para a sua segurança, altere a senha provisória do primeiro acesso por uma senha de sua preferência.';
+            }
+            
+            authSection.classList.add('hidden');
+            appSection.classList.remove('hidden');
+            document.getElementById('modal-change-password').classList.remove('hidden');
+        } else {
+            document.getElementById('modal-change-password').classList.add('hidden');
+            authSection.classList.add('hidden');
+            appSection.classList.remove('hidden');
+            
+            if (loginForm) loginForm.reset();
+            resetPasswordVisibility();
+            hideLoginError();
 
-        // Ir para a tela padrão (Dashboard)
-        switchView('dashboard');
+            // Ir para a tela padrão (Dashboard)
+            switchView(currentView || 'dashboard');
+        }
     } else {
         agendaRemindersCache = {};
         resetPasswordVisibility();
+        document.getElementById('modal-change-password').classList.add('hidden');
         appSection.classList.add('hidden');
         authSection.classList.remove('hidden');
     }
@@ -247,6 +270,142 @@ function setupEventListeners() {
 
     // Criador de Orçamentos
     setupBudgetCreatorEvents();
+
+    // Eventos de Recuperação e Troca de Senha
+    const btnShowForgot = document.getElementById('btn-show-forgot');
+    const forgotForm = document.getElementById('forgot-form');
+    const btnBackToLogin = document.getElementById('btn-back-to-login');
+    
+    if (btnShowForgot && forgotForm && loginForm) {
+        btnShowForgot.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.classList.add('hidden');
+            forgotForm.classList.remove('hidden');
+            document.getElementById('forgot-message').classList.add('hidden');
+            document.getElementById('forgot-error-message').classList.add('hidden');
+            forgotForm.reset();
+        });
+    }
+    
+    if (btnBackToLogin && forgotForm && loginForm) {
+        btnBackToLogin.addEventListener('click', () => {
+            forgotForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+            hideLoginError();
+        });
+    }
+
+    if (forgotForm) {
+        forgotForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('forgot-email').value.trim();
+            const btnSend = document.getElementById('btn-send-forgot');
+            const forgotMsg = document.getElementById('forgot-message');
+            const forgotError = document.getElementById('forgot-error-message');
+            
+            if (!supabaseClient) return;
+            
+            btnSend.disabled = true;
+            btnSend.innerHTML = `<span>Enviando...</span>`;
+            forgotMsg.classList.add('hidden');
+            forgotError.classList.add('hidden');
+            
+            try {
+                const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + window.location.pathname,
+                });
+                if (error) throw error;
+                forgotMsg.classList.remove('hidden');
+            } catch (error) {
+                console.error('Erro ao enviar recuperação:', error);
+                document.getElementById('forgot-error-text').textContent = 'Erro: ' + error.message;
+                forgotError.classList.remove('hidden');
+            } finally {
+                btnSend.disabled = false;
+                btnSend.innerHTML = `<span>Enviar Link</span><i class="fa-solid fa-paper-plane"></i>`;
+            }
+        });
+    }
+
+    const changePasswordForm = document.getElementById('change-password-form');
+    if (changePasswordForm) {
+        changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const errorEl = document.getElementById('change-password-error');
+            const errorTextEl = document.getElementById('change-password-error-text');
+            
+            if (newPassword !== confirmPassword) {
+                errorTextEl.textContent = 'As senhas não coincidem.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            // Validação de senha forte
+            const hasUppercase = /[A-Z]/.test(newPassword);
+            const hasNumber = /[0-9]/.test(newPassword);
+            const hasSpecialChar = /[^A-Za-z0-9]/.test(newPassword);
+            
+            if (newPassword.length < 8) {
+                errorTextEl.textContent = 'A senha deve ter pelo menos 8 caracteres.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (!hasUppercase) {
+                errorTextEl.textContent = 'A senha deve conter pelo menos uma letra maiúscula.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (!hasNumber) {
+                errorTextEl.textContent = 'A senha deve conter pelo menos um número.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (!hasSpecialChar) {
+                errorTextEl.textContent = 'A senha deve conter pelo menos um caractere especial (ex: @, #, $, %, etc.).';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (!supabaseClient) return;
+            
+            const btnSubmit = changePasswordForm.querySelector('button[type="submit"]');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<span>Salvando...</span>`;
+            errorEl.classList.add('hidden');
+            
+            try {
+                const { error } = await supabaseClient.auth.updateUser({
+                    password: newPassword,
+                    data: { password_changed: true }
+                });
+                if (error) throw error;
+                
+                document.getElementById('modal-change-password').classList.add('hidden');
+                changePasswordForm.reset();
+                alert('Senha atualizada com sucesso!');
+                
+                // Atualizar estado com a nova sessão
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                handleAuthStateChange('SIGNED_IN', session);
+            } catch (error) {
+                console.error('Erro ao atualizar senha:', error);
+                errorTextEl.textContent = 'Erro ao atualizar senha: ' + error.message;
+                errorEl.classList.remove('hidden');
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = `<span>Salvar Senha</span><i class="fa-solid fa-floppy-disk"></i>`;
+            }
+        });
+    }
+
+    const btnLogoutChangePassword = document.getElementById('btn-logout-change-password');
+    if (btnLogoutChangePassword) {
+        btnLogoutChangePassword.addEventListener('click', async () => {
+            await logout();
+        });
+    }
 }
 
 // Configuração de buscas em tempo real
