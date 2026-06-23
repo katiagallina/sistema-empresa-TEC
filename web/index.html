@@ -89,8 +89,8 @@
 
             <nav class="sidebar-menu">
                 <button class="nav-item active" data-view="dashboard">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Dashboard</span>
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span>Agenda</span>
                 </button>
                 <button class="nav-item" data-view="clients">
                     <i class="fa-solid fa-users"></i>
@@ -113,8 +113,8 @@
                     <span>Ordens de Serviço</span>
                 </button>
                 <button class="nav-item" data-view="expenses">
-                    <i class="fa-solid fa-receipt"></i>
-                    <span>Despesas</span>
+                    <i class="fa-solid fa-cash-register"></i>
+                    <span>Caixa</span>
                 </button>
             </nav>
 
@@ -137,7 +137,7 @@
                 <button id="btn-toggle-menu" class="menu-toggle-btn" title="Abrir Menu">
                     <i class="fa-solid fa-bars"></i>
                 </button>
-                <div class="top-bar-title" id="current-view-title">Dashboard</div>
+                <div class="top-bar-title" id="current-view-title">Agenda</div>
                 <div class="top-bar-actions">
                     <div class="user-badge-mobile">
                         <span id="user-display-mobile">-</span>
@@ -150,6 +150,25 @@
 
                 <!-- TELA A: DASHBOARD -->
                 <section id="view-dashboard" class="view-panel">
+                    <div class="calendar-container agenda-container">
+                        <div class="calendar-header">
+                            <div>
+                                <h2 class="agenda-title">Agenda</h2>
+                                <p class="agenda-subtitle">Clique em um dia para anotar onde precisa ir.</p>
+                            </div>
+                            <div class="calendar-navigation">
+                                <button class="btn btn-icon btn-nav-caixa" id="btn-prev-month" title="Mes anterior">
+                                    <i class="fa-solid fa-chevron-left"></i>
+                                </button>
+                                <h2 id="calendar-month-year-title" class="calendar-month-year">-</h2>
+                                <button class="btn btn-icon btn-nav-caixa" id="btn-next-month" title="Proximo mes">
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="calendar-grid" id="calendar-days-grid"></div>
+                    </div>
+
                     <div class="dashboard-kpi-grid">
                         <div class="kpi-card">
                             <div class="kpi-icon blue"><i class="fa-solid fa-wallet"></i></div>
@@ -345,34 +364,123 @@
                     </div>
                 </section>
 
-                <!-- TELA G: DESPESAS -->
+                <!-- TELA G: CAIXA -->
                 <section id="view-expenses" class="view-panel hidden">
-                    <div class="view-header">
-                        <div class="search-bar-wrapper" style="max-width: 500px;">
-                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                            <input type="text" id="expense-search" placeholder="Buscar despesas por descrição...">
+                    <div class="caixa-header-row">
+                        <div class="caixa-navigation">
+                            <button class="btn btn-icon btn-nav-caixa" onclick="changeCaixaMonth(-1)" title="Mês Anterior">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <h2 id="caixa-month-year-title" class="caixa-month-year">-</h2>
+                            <button class="btn btn-icon btn-nav-caixa" onclick="changeCaixaMonth(1)" title="Próximo Mês">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
                         </div>
-                        <button class="btn btn-primary" onclick="openModal('modal-expense')">
-                            <i class="fa-solid fa-receipt"></i>
-                            <span>Adicionar Despesa</span>
-                        </button>
+                        <div class="caixa-actions-btn-group">
+                            <button class="btn btn-success" onclick="openModal('modal-entry')">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Registrar Entrada</span>
+                            </button>
+                            <button class="btn btn-danger" onclick="openModal('modal-expense')">
+                                <i class="fa-solid fa-minus"></i>
+                                <span>Registrar Saída</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="table-container">
-                        <table class="data-table" id="expenses-table">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Descrição</th>
-                                    <th>Forma Pagamento</th>
-                                    <th>Valor</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="expenses-list">
-                                <!-- Preenchido dinamicamente -->
-                            </tbody>
-                        </table>
+                    <!-- Cartões KPI do Caixa -->
+                    <div class="dashboard-kpi-grid" style="margin-bottom: 25px;">
+                        <div class="kpi-card">
+                            <div class="kpi-icon green"><i class="fa-solid fa-circle-arrow-up"></i></div>
+                            <div class="kpi-info">
+                                <h3>Total de Entradas</h3>
+                                <span class="kpi-value" id="caixa-total-entradas" style="color: #10b981;">R$ 0,00</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon red"><i class="fa-solid fa-circle-arrow-down"></i></div>
+                            <div class="kpi-info">
+                                <h3>Total de Saídas</h3>
+                                <span class="kpi-value" id="caixa-total-saidas" style="color: #ef4444;">R$ 0,00</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card" id="caixa-balance-card">
+                            <div class="kpi-icon" id="caixa-balance-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                            <div class="kpi-info">
+                                <h3 id="caixa-balance-label">Balanço do Mês</h3>
+                                <span class="kpi-value" id="caixa-balance-value">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumo por Forma de Pagamento -->
+                    <div class="caixa-section-panel" style="margin-bottom: 25px;">
+                        <div class="caixa-section-header">
+                            <i class="fa-solid fa-wallet"></i>
+                            <h3>Resumo por Forma de Pagamento</h3>
+                        </div>
+                        <div class="payment-summary-grid" id="caixa-payments-summary">
+                            <!-- Preenchido via Javascript -->
+                        </div>
+                    </div>
+
+                    <!-- Barra de Pesquisa Unificada -->
+                    <div class="view-header" style="margin-bottom: 20px; padding: 0;">
+                        <div class="search-bar-wrapper" style="max-width: 500px; width: 100%;">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="caixa-search" placeholder="Buscar por descrição, cliente ou fornecedor..." oninput="renderCaixaTables()">
+                        </div>
+                    </div>
+
+                    <!-- Tabelas Lado a Lado -->
+                    <div class="caixa-tables-grid">
+                        <!-- Tabela Entradas -->
+                        <div class="caixa-table-card">
+                            <div class="caixa-table-header-title positive">
+                                <i class="fa-solid fa-circle-arrow-up"></i>
+                                <span>Entradas (Serviços Realizados)</span>
+                            </div>
+                            <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Cliente / Serviço</th>
+                                            <th>Forma</th>
+                                            <th>Valor</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="caixa-entradas-list">
+                                        <!-- Dinâmico -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tabela Saídas -->
+                        <div class="caixa-table-card">
+                            <div class="caixa-table-header-title negative">
+                                <i class="fa-solid fa-circle-arrow-down"></i>
+                                <span>Saídas (Despesas)</span>
+                            </div>
+                            <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Fornecedor / Descrição</th>
+                                            <th>Forma</th>
+                                            <th>Valor</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="caixa-saidas-list">
+                                        <!-- Dinâmico -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -607,6 +715,16 @@
                     </div>
                 </div>
 
+                <div id="entry-installments-group" style="display: none; margin-top: 15px; border-top: 1px solid var(--border-glass); padding-top: 15px;">
+                    <div class="input-group">
+                        <label for="entry-installments">Número de Parcelas *</label>
+                        <input type="number" id="entry-installments" min="1" max="24" value="1">
+                    </div>
+                    <div id="entry-installments-dates-container" style="display: none; margin-top: 10px;">
+                        <!-- Gerado dinamicamente por JS -->
+                    </div>
+                </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary"
                         onclick="closeModal('modal-entry')">Cancelar</button>
@@ -617,6 +735,35 @@
     </div>
 
     <!-- MODAL DETALHES DO DIA DO CALENDÁRIO -->
+    <div id="modal-agenda-reminder" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 560px;">
+            <div class="modal-header">
+                <h2 id="agenda-reminder-title">Lembrete do dia</h2>
+                <button class="modal-close-btn" onclick="closeModal('modal-agenda-reminder')"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="agenda-reminder-form">
+                <input type="hidden" id="agenda-reminder-date">
+                <div class="input-group">
+                    <label for="agenda-reminder-text">Onde precisa ir?</label>
+                    <textarea id="agenda-reminder-text" rows="5" placeholder="Ex: Ir ao cliente, comprar material, visitar obra..."></textarea>
+                </div>
+                <div class="modal-footer" style="gap: 12px; display: flex; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('modal-agenda-reminder')">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="btn-delete-agenda-reminder">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>Apagar</span>
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Salvar</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modal-day-details" class="modal-overlay hidden">
         <div class="modal-card" style="max-width: 650px;">
             <div class="modal-header">
@@ -721,11 +868,9 @@
                             </select>
                         </div>
                         <div class="input-group" style="flex: 2;">
-                            <label for="budget-item-select">Selecionar Item</label>
-                            <select id="budget-item-select">
-                                <option value="">Escolha um item...</option>
-                                <!-- Carregado via JS dinamicamente dependendo do tipo -->
-                            </select>
+                            <label for="budget-item-input">Selecionar Item</label>
+                            <input type="text" id="budget-item-input" placeholder="Digite para buscar e selecione..." list="budget-item-datalist">
+                            <datalist id="budget-item-datalist"></datalist>
                         </div>
                     </div>
 
@@ -794,8 +939,8 @@
     <!-- Barra de Navegação Inferior para Mobile -->
     <nav class="mobile-nav-bar">
         <button class="mobile-nav-item active" data-view="dashboard">
-            <i class="fa-solid fa-chart-line"></i>
-            <span>Dash</span>
+            <i class="fa-solid fa-calendar-days"></i>
+            <span>Agenda</span>
         </button>
         <button class="mobile-nav-item" data-view="clients">
             <i class="fa-solid fa-users"></i>
@@ -827,7 +972,7 @@
                     Serviços</button>
                 <button onclick="navigateFromDrawer('os')"><i class="fa-solid fa-clipboard-list"></i> Ordens de
                     Serviço</button>
-                <button onclick="navigateFromDrawer('expenses')"><i class="fa-solid fa-receipt"></i> Despesas</button>
+                <button onclick="navigateFromDrawer('expenses')"><i class="fa-solid fa-cash-register"></i> Caixa</button>
                 <hr style="border: 0; border-top: 1px solid var(--border-glass); margin: 10px 0;">
                 <button onclick="logoutFromDrawer()" style="color: var(--color-red);"><i
                         class="fa-solid fa-right-from-bracket"></i> Sair do Sistema</button>

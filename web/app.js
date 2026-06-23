@@ -8,11 +8,13 @@ let salesChart = null;
 let currentCalendarDate = new Date();
 let allMonthEntries = [];
 let allMonthExpenses = [];
+let currentCaixaDate = new Date();
 let selectedDayEvents = [];
 let selectedDayDateStr = '';
 
 // Itens temporários do orçamento sendo criado (Carrinho)
 let budgetCart = [];
+let currentEditingBudgetId = null;
 
 // Elementos da Interface (DOM)
 const authSection = document.getElementById('auth-section');
@@ -183,12 +185,10 @@ function setupEventListeners() {
     const btnNextMonth = document.getElementById('btn-next-month');
     if (btnPrevMonth) btnPrevMonth.addEventListener('click', () => changeCalendarMonth(-1));
     if (btnNextMonth) btnNextMonth.addEventListener('click', () => changeCalendarMonth(1));
+    setupAgendaReminderEvents();
     
-    // Datepicker de Filtro do Caixa Diário
-    const caixaDiarioData = document.getElementById('caixa-diario-data');
-    if (caixaDiarioData) {
-        caixaDiarioData.addEventListener('change', renderDailyBalance);
-    }
+    // Inicializar lógica de parcelas de boleto
+    setupInstallmentsLogic();
     
     // Botões de adição rápida no modal de detalhes do dia
     const btnDayAddEntrada = document.getElementById('btn-day-add-entrada');
@@ -227,8 +227,7 @@ function setupSearchFilters() {
         { inputId: 'service-search', fetchFn: fetchServices },
         { inputId: 'budget-search', fetchFn: fetchBudgets },
         { inputId: 'os-search', fetchFn: fetchOS },
-        { inputId: 'entry-search', fetchFn: () => renderCaixaTables() },
-        { inputId: 'expense-search-caixa', fetchFn: () => renderCaixaTables() }
+        { inputId: 'caixa-search', fetchFn: () => renderCaixaTables() }
     ];
 
     filters.forEach(filter => {
@@ -243,6 +242,72 @@ function setupSearchFilters() {
             });
         }
     });
+}
+
+function setupInstallmentsLogic() {
+    const entryPayment = document.getElementById('entry-payment');
+    const installmentsGroup = document.getElementById('entry-installments-group');
+    const installmentsInput = document.getElementById('entry-installments');
+    const installmentDatesContainer = document.getElementById('entry-installments-dates-container');
+    const entryDate = document.getElementById('entry-date');
+
+    if (!entryPayment || !installmentsGroup || !installmentsInput || !installmentDatesContainer || !entryDate) return;
+
+    function updateInstallmentFields() {
+        const payment = entryPayment.value;
+        const numInstallments = parseInt(installmentsInput.value) || 1;
+        const idFieldVal = document.getElementById('entry-id-field').value;
+
+        // Se estiver editando, não permitir parcelamento
+        if (idFieldVal) {
+            installmentsGroup.style.display = 'none';
+            installmentDatesContainer.style.display = 'none';
+            return;
+        }
+
+        if (payment === 'BOLETO') {
+            installmentsGroup.style.display = 'block';
+            if (numInstallments > 1) {
+                installmentDatesContainer.innerHTML = '';
+                installmentDatesContainer.style.display = 'block';
+                
+                const baseDateVal = entryDate.value;
+                let baseDate = baseDateVal ? new Date(baseDateVal + 'T12:00:00') : new Date();
+                
+                for (let i = 1; i <= numInstallments; i++) {
+                    let dueDate = new Date(baseDate.getTime());
+                    dueDate.setMonth(baseDate.getMonth() + (i - 1));
+                    const dateStr = dueDate.toLocaleDateString('en-CA');
+                    
+                    const div = document.createElement('div');
+                    div.className = 'input-group';
+                    div.style.marginTop = '10px';
+                    div.innerHTML = `
+                        <label>Vencimento da Parcela ${i}/${numInstallments} *</label>
+                        <input type="date" class="entry-installment-date" data-index="${i}" value="${dateStr}" required>
+                    `;
+                    installmentDatesContainer.appendChild(div);
+                }
+            } else {
+                installmentDatesContainer.innerHTML = '';
+                installmentDatesContainer.style.display = 'none';
+            }
+        } else {
+            installmentsGroup.style.display = 'none';
+            installmentDatesContainer.innerHTML = '';
+            installmentDatesContainer.style.display = 'none';
+        }
+    }
+
+    entryPayment.addEventListener('change', () => {
+        if (entryPayment.value !== 'BOLETO') {
+            installmentsInput.value = 1;
+        }
+        updateInstallmentFields();
+    });
+
+    installmentsInput.addEventListener('input', updateInstallmentFields);
+    entryDate.addEventListener('change', updateInstallmentFields);
 }
 
 // Navegação do painel SPA
@@ -271,7 +336,7 @@ function switchView(viewName) {
         'os': 'Ordens de Serviço',
         'expenses': 'Caixa'
     };
-    document.getElementById('current-view-title').textContent = viewTitles[viewName] || 'Sistema';
+    document.getElementById('current-view-title').textContent = viewName === 'dashboard' ? 'Agenda' : (viewTitles[viewName] || 'Sistema');
 
     // Menu Desktop
     document.querySelectorAll('.nav-item').forEach(btn => {
@@ -423,6 +488,9 @@ async function fetchClients(query = '') {
 async function saveClient(e) {
     e.preventDefault();
     const id = document.getElementById('client-id-field').value;
+    const msg = id ? 'Deseja realmente salvar as alterações deste cliente?' : 'Deseja realmente cadastrar este cliente?';
+    if (!confirm(msg)) return;
+
     const client = {
         nome: document.getElementById('client-name').value.trim(),
         telefone: document.getElementById('client-phone').value.trim(),
@@ -445,6 +513,7 @@ async function saveClient(e) {
 }
 
 async function editClient(id) {
+    if (!confirm('Deseja realmente editar este cliente?')) return;
     try {
         const { data, error } = await supabaseClient.from('clientes').select('*').eq('id', id).single();
         if (error) throw error;
@@ -502,6 +571,9 @@ async function fetchProducts(query = '') {
 async function saveProduct(e) {
     e.preventDefault();
     const id = document.getElementById('product-id-field').value;
+    const msg = id ? 'Deseja realmente salvar as alterações deste produto?' : 'Deseja realmente cadastrar este produto?';
+    if (!confirm(msg)) return;
+
     const product = {
         nome: document.getElementById('product-name').value.trim(),
         preco_custo: parseFloat(document.getElementById('product-cost').value),
@@ -523,6 +595,7 @@ async function saveProduct(e) {
 }
 
 async function editProduct(id) {
+    if (!confirm('Deseja realmente editar este produto?')) return;
     try {
         const { data, error } = await supabaseClient.from('produtos').select('*').eq('id', id).single();
         if (error) throw error;
@@ -577,6 +650,9 @@ async function fetchServices(query = '') {
 async function saveService(e) {
     e.preventDefault();
     const id = document.getElementById('service-id-field').value;
+    const msg = id ? 'Deseja realmente salvar as alterações deste serviço?' : 'Deseja realmente cadastrar este serviço?';
+    if (!confirm(msg)) return;
+
     const service = {
         nome: document.getElementById('service-name').value.trim(),
         tipo: document.getElementById('service-type').value,
@@ -596,6 +672,7 @@ async function saveService(e) {
 }
 
 async function editService(id) {
+    if (!confirm('Deseja realmente editar este serviço?')) return;
     try {
         const { data, error } = await supabaseClient.from('servicos').select('*').eq('id', id).single();
         if (error) throw error;
@@ -655,6 +732,7 @@ async function fetchBudgets(query = '') {
                 <td data-label="Status"><span class="badge ${badgeClass}">${b.status}</span></td>
                 <td data-label="Ações" class="actions-cell">
                     <button class="action-btn edit" onclick="viewBudgetDetails(${b.id})" title="Visualizar/Exportar PDF"><i class="fa-solid fa-file-pdf"></i></button>
+                    <button class="action-btn edit" onclick="openBudgetCreator(${b.id})" title="Editar Orçamento"><i class="fa-solid fa-pen-to-square"></i></button>
                     <button class="action-btn edit" style="color:var(--color-green); background:var(--color-green-glow);" onclick="approveBudget(${b.id})" title="Aprovar/Iniciar O.S."><i class="fa-solid fa-circle-check"></i></button>
                     <button class="action-btn delete" onclick="deleteBudget(${b.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
                 </td>
@@ -723,6 +801,10 @@ async function deleteBudget(id) {
 // 📄 DETALHES DO ORÇAMENTO & PDF
 async function viewBudgetDetails(id) {
     try {
+        // Resetar o título do modal para Orçamento
+        const titleEl = document.querySelector('#modal-budget-view .modal-header h2');
+        if (titleEl) titleEl.textContent = 'Visualizar Orçamento';
+
         const { data: budget, error: bErr } = await supabaseClient.from('orcamentos').select('*, clientes(*)').eq('id', id).single();
         if (bErr) throw bErr;
 
@@ -733,63 +815,85 @@ async function viewBudgetDetails(id) {
         const preview = document.getElementById('budget-pdf-preview-content');
         
         let itemsHtml = '';
-        items.forEach((item, idx) => {
-            const totalItem = formatCurrency(item.valor_total);
-            const unitVal = formatCurrency(item.valor_unitario);
-            const qtd = parseFloat(item.quantidade).toFixed(2).replace('.', ',');
+        let valorMaoDeObra = 0;
+
+        items.forEach((item) => {
+            if (item.tipo_item === 'SERVICO') {
+                valorMaoDeObra += parseFloat(item.valor_total);
+            } else {
+                const totalItem = formatCurrency(item.valor_total);
+                const unitVal = formatCurrency(item.valor_unitario);
+                const qtyVal = parseFloat(item.quantidade);
+                const qtd = Number.isInteger(qtyVal) ? qtyVal.toString() : qtyVal.toFixed(2).replace('.', ',');
+                
+                itemsHtml += `
+                    <tr>
+                        <td class="pdf-table-qty">${qtd}</td>
+                        <td>${item.descricao.toUpperCase()}</td>
+                        <td class="pdf-table-center">${unitVal}</td>
+                        <td class="pdf-table-center">${totalItem}</td>
+                    </tr>
+                `;
+            }
+        });
+
+        // Adicionar linha de Mão de Obra se houver
+        if (valorMaoDeObra > 0) {
             itemsHtml += `
                 <tr>
-                    <td>${idx + 1}</td>
-                    <td>${item.descricao}</td>
-                    <td>${item.tipo_item}</td>
-                    <td>${qtd}</td>
-                    <td>${unitVal}</td>
-                    <td>${totalItem}</td>
+                    <td></td>
+                    <td style="font-weight: bold;">MÃO DE OBRA E DESLOCAMENTO</td>
+                    <td></td>
+                    <td class="pdf-table-center" style="font-weight: bold;">${formatCurrency(valorMaoDeObra)}</td>
                 </tr>
             `;
-        });
+        }
+
+        // Linha de Total Geral
+        itemsHtml += `
+            <tr style="font-weight: bold;">
+                <td></td>
+                <td>TOTAL</td>
+                <td></td>
+                <td class="pdf-table-center" style="font-weight: bold;">${formatCurrency(budget.total)}</td>
+            </tr>
+        `;
+
+        const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+        const currentDateFormatted = new Date().toLocaleDateString('pt-BR', dateOptions);
+        const cityDateStr = `Getúlio Vargas, ${currentDateFormatted}`;
 
         preview.innerHTML = `
             <div class="pdf-container" id="pdf-document">
                 <div class="pdf-header">
-                    <div class="pdf-company-info">
-                        <h1>TEC ENERGIA E SOLUÇÕES</h1>
-                        <p>CNPJ: 00.000.000/0001-00</p>
-                        <p>Telefone: (00) 99999-9999 | Email: contato@empresa.com</p>
+                    <div class="pdf-header-top">
+                        <div class="pdf-header-logo-container">
+                            <img src="logo.png" alt="TEC Energia e Soluções" class="pdf-header-logo">
+                        </div>
+                        <div class="pdf-header-company-info">
+                            <h1 class="pdf-company-title">TEC ENERGIA E SOLUÇÕES</h1>
+                            <p class="pdf-company-subtitle">ENTREGANDO SERIEDADE E QUALIDADE</p>
+                            <p class="pdf-company-cnpj">CNPJ 59.241.256.0001-33</p>
+                        </div>
                     </div>
-                    <div class="pdf-title-info">
-                        <h2>ORÇAMENTO</h2>
-                        <p style="font-size:14px; font-weight:700; color:#000000;">Nº #${budget.id}</p>
-                        <p>Data: ${dataFmt}</p>
+                    <div class="pdf-header-bottom">
+                        <p>Endereço: Rua Batista Guidi, 795 Bairro Santa Catarina</p>
+                        <p>Getúlio Vargas - RS</p>
+                        <p class="pdf-company-contacts">CONTATOS: TIAGO 991838023 &nbsp;&nbsp;&nbsp;&nbsp; EMERSON 991825194</p>
                     </div>
                 </div>
                 
-                <div class="pdf-details-grid">
-                    <div class="pdf-detail-box">
-                        <h3>DADOS DO CLIENTE</h3>
-                        <p><strong>Nome:</strong> ${budget.clientes.nome}</p>
-                        <p><strong>Telefone:</strong> ${budget.clientes.telefone || '-'}</p>
-                        <p><strong>E-mail:</strong> ${budget.clientes.email || '-'}</p>
-                        <p><strong>Endereço:</strong> ${budget.clientes.endereco || '-'}</p>
-                        <p><strong>Cidade:</strong> ${budget.clientes.cidade || '-'}</p>
-                    </div>
-                    <div class="pdf-detail-box">
-                        <h3>INFORMAÇÕES ADICIONAIS</h3>
-                        <p><strong>Status do Orçamento:</strong> ${budget.status}</p>
-                        <p><strong>Condição de Pagamento:</strong> A combinar</p>
-                        <p><strong>Observações:</strong> ${budget.clientes.observacoes || 'Nenhuma'}</p>
-                    </div>
+                <div class="pdf-client-info-row">
+                    <span>NOME: ${budget.clientes.nome.toUpperCase()}</span>
                 </div>
 
                 <table class="pdf-table">
                     <thead>
                         <tr>
-                            <th style="width: 50px;">Item</th>
-                            <th>Descrição</th>
-                            <th style="width: 80px;">Tipo</th>
-                            <th style="width: 70px;">Qtd</th>
-                            <th style="width: 100px;">Unitário</th>
-                            <th style="width: 100px;">Total</th>
+                            <th style="width: 110px; text-align: center;">QUANTIDADE</th>
+                            <th style="text-align: center;">PRODUTO</th>
+                            <th style="width: 120px; text-align: center;">VALOR UNIT.</th>
+                            <th style="width: 120px; text-align: center;">VALOR TOTAL</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -797,16 +901,13 @@ async function viewBudgetDetails(id) {
                     </tbody>
                 </table>
 
-                <div class="pdf-total-box">
-                    <span>TOTAL GERAL: ${formatCurrency(budget.total)}</span>
-                </div>
-
-                <div class="pdf-signatures">
-                    <div class="pdf-signature-line">
-                        Representante da Empresa
+                <div class="pdf-footer-section">
+                    <div class="pdf-validity-info">
+                        ORÇAMENTO VÁLIDO POR 30 DIAS
                     </div>
-                    <div class="pdf-signature-line">
-                        Aceite do Cliente (Assinatura e Data)
+
+                    <div class="pdf-current-date-info">
+                        ${cityDateStr}
                     </div>
                 </div>
             </div>
@@ -867,6 +968,7 @@ async function fetchOS(query = '') {
                 <td data-label="Valor Total">${formatCurrency(os.total)}</td>
                 <td data-label="Status">${selectHtml}</td>
                 <td data-label="Ações" class="actions-cell">
+                    <button class="action-btn edit" onclick="viewOSDetails(${os.id})" title="Visualizar/Exportar PDF"><i class="fa-solid fa-file-pdf"></i></button>
                     <button class="action-btn delete" onclick="deleteOS(${os.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
                 </td>
             `;
@@ -876,13 +978,27 @@ async function fetchOS(query = '') {
 }
 
 async function changeOSStatus(id, newStatus) {
+    if (!confirm(`Deseja realmente alterar o status da O.S. para ${newStatus}?`)) {
+        fetchOS(); // Reverte a seleção no dropdown
+        return;
+    }
     try {
+        let paymentMethod = 'A COMBINAR';
+        if (newStatus === 'PAGO' || newStatus === 'FINALIZADO') {
+            const inputPay = prompt('O.S. finalizada/paga. Qual foi a forma de pagamento?\nOpções: PIX, DINHEIRO, BOLETO, CARTÃO, CHEQUE', 'PIX');
+            if (inputPay === null) {
+                fetchOS(); // Reverte a seleção no dropdown
+                return;
+            }
+            paymentMethod = inputPay.trim() ? inputPay.trim() : 'PIX';
+        }
+
         const { error } = await supabaseClient.from('ordem_servico').update({ status: newStatus }).eq('id', id);
         if (error) throw error;
         
-        // Se mudar para PAGO ou FINALIZADO, podemos automatizar o registro de Vendas
-        if (newStatus === 'PAGO') {
-            await registrarVendasDaOS(id);
+        // Se mudar para PAGO ou FINALIZADO, automatizar o registro de Vendas
+        if (newStatus === 'PAGO' || newStatus === 'FINALIZADO') {
+            await registrarVendasDaOS(id, paymentMethod);
         }
         
         fetchOS();
@@ -890,7 +1006,7 @@ async function changeOSStatus(id, newStatus) {
 }
 
 // Cria as vendas na tabela `vendas` a partir dos itens da O.S.
-async function registrarVendasDaOS(osId) {
+async function registrarVendasDaOS(osId, formaPagamento = 'A COMBINAR') {
     try {
         // Verifica se as vendas desta O.S. já foram registradas
         const { data: exist, error: exErr } = await supabaseClient.from('vendas').select('id').eq('ordem_servico_id', osId);
@@ -920,7 +1036,7 @@ async function registrarVendasDaOS(osId) {
                 valor_total: item.valor_total,
                 custo_total: custoTotal,
                 lucro: lucro,
-                forma_pagamento: 'A COMBINAR' // Pode ser estendido
+                forma_pagamento: formaPagamento.toUpperCase()
             });
             
             // Abater estoque dos produtos vendidos
@@ -947,6 +1063,159 @@ async function deleteOS(id) {
         if (error) throw error;
         fetchOS();
     } catch (e) { alert('Erro ao excluir O.S.: ' + e.message); }
+}
+
+// 📄 DETALHES DA ORDEM DE SERVIÇO & PDF
+async function viewOSDetails(id) {
+    try {
+        const { data: os, error: osErr } = await supabaseClient.from('ordem_servico').select('*, clientes(*)').eq('id', id).single();
+        if (osErr) throw osErr;
+
+        const { data: items, error: iErr } = await supabaseClient.from('ordem_servico_itens').select('*').eq('ordem_servico_id', id);
+        if (iErr) throw iErr;
+
+        const dataFmt = new Date(os.data).toLocaleDateString('pt-BR');
+        const preview = document.getElementById('budget-pdf-preview-content');
+        
+        let itemsHtml = '';
+        let valorMaoDeObra = 0;
+
+        items.forEach((item) => {
+            if (item.tipo_item === 'SERVICO') {
+                valorMaoDeObra += parseFloat(item.valor_total);
+            } else {
+                const totalItem = formatCurrency(item.valor_total);
+                const unitVal = formatCurrency(item.valor_unitario);
+                const qtyVal = parseFloat(item.quantidade);
+                const qtd = Number.isInteger(qtyVal) ? qtyVal.toString() : qtyVal.toFixed(2).replace('.', ',');
+                
+                itemsHtml += `
+                    <tr>
+                        <td class="pdf-table-qty">${qtd}</td>
+                        <td>${item.descricao.toUpperCase()}</td>
+                        <td class="pdf-table-center">${unitVal}</td>
+                        <td class="pdf-table-center">${totalItem}</td>
+                    </tr>
+                `;
+            }
+        });
+
+        // Adicionar linha de Mão de Obra se houver
+        if (valorMaoDeObra > 0) {
+            itemsHtml += `
+                <tr>
+                    <td></td>
+                    <td style="font-weight: bold;">MÃO DE OBRA E DESLOCAMENTO</td>
+                    <td></td>
+                    <td class="pdf-table-center" style="font-weight: bold;">${formatCurrency(valorMaoDeObra)}</td>
+                </tr>
+            `;
+        }
+
+        // Linha de Total Geral
+        itemsHtml += `
+            <tr style="font-weight: bold;">
+                <td></td>
+                <td>TOTAL</td>
+                <td></td>
+                <td class="pdf-table-center" style="font-weight: bold;">${formatCurrency(os.total)}</td>
+            </tr>
+        `;
+
+        const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+        const currentDateFormatted = new Date().toLocaleDateString('pt-BR', dateOptions);
+        const cityDateStr = `Getúlio Vargas, ${currentDateFormatted}`;
+
+        // Mudar o título do Modal para O.S.
+        const modalTitle = document.querySelector('#modal-budget-view .modal-header h2');
+        if (modalTitle) modalTitle.textContent = 'Visualizar Ordem de Serviço';
+
+        preview.innerHTML = `
+            <div class="pdf-container" id="pdf-document">
+                <div class="pdf-header">
+                    <div class="pdf-header-top">
+                        <div class="pdf-header-logo-container">
+                            <img src="logo.png" alt="TEC Energia e Soluções" class="pdf-header-logo">
+                        </div>
+                        <div class="pdf-header-company-info">
+                            <h1 class="pdf-company-title">TEC ENERGIA E SOLUÇÕES</h1>
+                            <p class="pdf-company-subtitle">ENTREGANDO SERIEDADE E QUALIDADE</p>
+                            <p class="pdf-company-cnpj">CNPJ 59.241.256.0001-33</p>
+                        </div>
+                    </div>
+                    <div class="pdf-header-bottom">
+                        <p>Endereço: Rua Batista Guidi, 795 Bairro Santa Catarina</p>
+                        <p>Getúlio Vargas - RS</p>
+                        <p class="pdf-company-contacts">CONTATOS: TIAGO 991838023 &nbsp;&nbsp;&nbsp;&nbsp; EMERSON 991825194</p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 10px;">
+                    <div class="pdf-client-info-row" style="margin: 0;">
+                        NOME: ${os.clientes.nome.toUpperCase()}
+                    </div>
+                    <div style="font-size: 13px; font-weight: bold; color: #000000; text-transform: uppercase;">
+                        ORDEM DE SERVIÇO Nº #${os.id}
+                    </div>
+                </div>
+
+                <table class="pdf-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 110px; text-align: center;">QUANTIDADE</th>
+                            <th style="text-align: center;">PRODUTO / SERVIÇO</th>
+                            <th style="width: 120px; text-align: center;">VALOR UNIT.</th>
+                            <th style="width: 120px; text-align: center;">VALOR TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+
+                <div class="pdf-footer-section">
+                    <div class="pdf-signatures" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; margin-top: 20px; margin-bottom: 20px;">
+                        <div class="pdf-signature-line" style="border-top: 1px solid #000; padding-top: 8px; font-size: 10px; color: #000; font-weight: bold;">
+                            ASSINATURA DO TÉCNICO
+                        </div>
+                        <div class="pdf-signature-line" style="border-top: 1px solid #000; padding-top: 8px; font-size: 10px; color: #000; font-weight: bold;">
+                            ASSINATURA DO CLIENTE
+                        </div>
+                    </div>
+
+                    <div class="pdf-current-date-info" style="margin-bottom: 10px;">
+                        ${cityDateStr}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Atribuir evento de download do PDF
+        document.getElementById('btn-download-pdf').onclick = () => {
+            const opt = {
+                margin:       10,
+                filename:     `ordem_servico_${os.id}_${os.clientes.nome.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            const docElement = document.getElementById('pdf-document');
+            html2pdf().set(opt).from(docElement).save();
+        };
+
+        // Resetar o título do modal ao fechar
+        const modal = document.getElementById('modal-budget-view');
+        const originalClose = modal.querySelector('.modal-close-btn');
+        if (originalClose) {
+            originalClose.onclick = () => {
+                closeModal('modal-budget-view');
+                const titleEl = document.querySelector('#modal-budget-view .modal-header h2');
+                if (titleEl) titleEl.textContent = 'Visualizar Orçamento';
+            };
+        }
+
+        openModal('modal-budget-view');
+    } catch (e) { alert('Erro ao visualizar Ordem de Serviço: ' + e.message); }
 }
 
 // ========================================================
@@ -1086,6 +1355,11 @@ function changeCalendarMonth(offset) {
     fetchCalendar();
 }
 
+function changeCaixaMonth(offset) {
+    currentCaixaDate.setMonth(currentCaixaDate.getMonth() + offset);
+    fetchCaixa();
+}
+
 async function openDayDetailsModal(dateString, dayEvents) {
     selectedDayDateStr = dateString;
     selectedDayEvents = dayEvents;
@@ -1212,24 +1486,36 @@ async function deleteExpenseFromCalendar(id) {
 
 
 // 💰 LÓGICA DO FLUXO DE CAIXA
+function normalizePaymentMethod(method) {
+    if (!method) return 'Outros';
+    const m = method.trim().toUpperCase();
+    if (m.includes('PIX')) return 'PIX';
+    if (m.includes('DINHEIRO')) return 'Dinheiro';
+    if (m.includes('BOLETO')) return 'Boleto';
+    if (m.includes('CARTAO') || m.includes('CARTÃO') || m.includes('DÉBITO') || m.includes('DEBITO') || m.includes('CRÉDITO') || m.includes('CREDITO')) return 'Cartão';
+    if (m.includes('CHEQUE')) return 'Cheque';
+    return 'Outros';
+}
+
 async function fetchCaixa() {
     if (!supabaseClient) return;
     try {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth();
+        const year = currentCaixaDate.getFullYear();
+        const month = currentCaixaDate.getMonth();
         const numDays = new Date(year, month + 1, 0).getDate();
         
-        const startDate = new Date(year, month, 1).toISOString();
+        const startDate = new Date(year, month, 1, 0, 0, 0).toISOString();
         const endDate = new Date(year, month, numDays, 23, 59, 59).toISOString();
         
-        // Definir data padrão de hoje se o input estiver vazio
-        const dateInput = document.getElementById('caixa-diario-data');
-        if (dateInput && !dateInput.value) {
-            dateInput.value = today.toLocaleDateString('en-CA');
+        // Atualizar título do mês
+        const monthYearTitle = currentCaixaDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const capitalizedTitle = monthYearTitle.charAt(0).toUpperCase() + monthYearTitle.slice(1);
+        const titleElem = document.getElementById('caixa-month-year-title');
+        if (titleElem) {
+            titleElem.textContent = capitalizedTitle;
         }
         
-        // Buscar em paralelo entradas, despesas e lista de clientes
+        // Buscar entradas, despesas e clientes
         const [entriesRes, expensesRes, clientsRes] = await Promise.all([
             supabaseClient.from('servicos_realizados').select('*, clientes(nome)').gte('data_servico', startDate).lte('data_servico', endDate),
             supabaseClient.from('despesas').select('*').gte('data_despesa', startDate).lte('data_despesa', endDate),
@@ -1239,7 +1525,7 @@ async function fetchCaixa() {
         allMonthEntries = entriesRes.data || [];
         allMonthExpenses = expensesRes.data || [];
         
-        // Preencher dropdown de clientes na entrada
+        // Preencher dropdown de clientes na modal de entrada
         const clientSelect = document.getElementById('entry-client-select');
         if (clientSelect && clientsRes.data) {
             clientSelect.innerHTML = '<option value="">Selecione um cliente...</option>';
@@ -1248,150 +1534,257 @@ async function fetchCaixa() {
             });
         }
         
-        // Renderizar KPIs mensais
+        // KPIs
         let totalEntradas = 0;
         allMonthEntries.forEach(e => totalEntradas += e.valor);
         
         let totalSaidas = 0;
         allMonthExpenses.forEach(exp => totalSaidas += exp.valor);
         
-        document.getElementById('kpi-caixa-entradas').textContent = formatCurrency(totalEntradas);
-        document.getElementById('kpi-caixa-saidas').textContent = formatCurrency(totalSaidas);
-        document.getElementById('kpi-caixa-lucro').textContent = formatCurrency(totalEntradas - totalSaidas);
+        const balance = totalEntradas - totalSaidas;
         
-        // Atualizar tabelas e balanço diário
+        document.getElementById('caixa-total-entradas').textContent = formatCurrency(totalEntradas);
+        document.getElementById('caixa-total-saidas').textContent = formatCurrency(totalSaidas);
+        
+        const balanceValElem = document.getElementById('caixa-balance-value');
+        if (balanceValElem) {
+            balanceValElem.textContent = formatCurrency(balance);
+        }
+        
+        const balanceCard = document.getElementById('caixa-balance-card');
+        const balanceLabel = document.getElementById('caixa-balance-label');
+        const balanceIcon = document.getElementById('caixa-balance-icon');
+        
+        if (balanceCard) {
+            balanceCard.className = 'kpi-card';
+            if (balance >= 0) {
+                balanceCard.classList.add('profit-status');
+                if (balanceLabel) balanceLabel.textContent = 'Lucro no Mês';
+                if (balanceIcon) {
+                    balanceIcon.className = 'kpi-icon green';
+                    balanceIcon.innerHTML = '<i class="fa-solid fa-face-smile"></i>';
+                }
+            } else {
+                balanceCard.classList.add('loss-status');
+                if (balanceLabel) balanceLabel.textContent = 'Prejuízo no Mês';
+                if (balanceIcon) {
+                    balanceIcon.className = 'kpi-icon red';
+                    balanceIcon.innerHTML = '<i class="fa-solid fa-face-frown"></i>';
+                }
+            }
+        }
+        
+        // Resumo por Forma de Pagamento
+        const methodSums = {
+            'PIX': { inflow: 0, outflow: 0 },
+            'Dinheiro': { inflow: 0, outflow: 0 },
+            'Boleto': { inflow: 0, outflow: 0 },
+            'Cartão': { inflow: 0, outflow: 0 },
+            'Cheque': { inflow: 0, outflow: 0 },
+            'Outros': { inflow: 0, outflow: 0 }
+        };
+
+        allMonthEntries.forEach(e => {
+            const norm = normalizePaymentMethod(e.forma_pagamento);
+            if (methodSums[norm]) {
+                methodSums[norm].inflow += e.valor;
+            } else {
+                methodSums[norm] = { inflow: e.valor, outflow: 0 };
+            }
+        });
+
+        allMonthExpenses.forEach(exp => {
+            const norm = normalizePaymentMethod(exp.forma_pagamento);
+            if (methodSums[norm]) {
+                methodSums[norm].outflow += exp.valor;
+            } else {
+                methodSums[norm] = { inflow: 0, outflow: exp.valor };
+            }
+        });
+
+        const summaryContainer = document.getElementById('caixa-payments-summary');
+        if (summaryContainer) {
+            summaryContainer.innerHTML = '';
+            const methodsToRender = ['PIX', 'Dinheiro', 'Boleto', 'Cartão', 'Cheque'];
+            if (methodSums['Outros'].inflow > 0 || methodSums['Outros'].outflow > 0) {
+                methodsToRender.push('Outros');
+            }
+            
+            methodsToRender.forEach(m => {
+                const info = methodSums[m] || { inflow: 0, outflow: 0 };
+                const bal = info.inflow - info.outflow;
+                const balanceClass = bal >= 0 ? 'positive' : 'negative';
+                const balanceSign = bal >= 0 ? '+' : '';
+                
+                const card = document.createElement('div');
+                card.className = 'payment-summary-card';
+                card.innerHTML = `
+                    <div class="payment-method-name">${m}</div>
+                    <div class="payment-method-details">
+                        <div class="detail-row">
+                            <span>Entradas:</span>
+                            <span class="val-in">+${formatCurrency(info.inflow)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Saídas:</span>
+                            <span class="val-out">-${formatCurrency(info.outflow)}</span>
+                        </div>
+                        <div class="detail-row balance">
+                            <span>Saldo:</span>
+                            <span class="val-bal ${balanceClass}">${balanceSign}${formatCurrency(bal)}</span>
+                        </div>
+                    </div>
+                `;
+                summaryContainer.appendChild(card);
+            });
+        }
+        
         renderCaixaTables();
-        renderDailyBalance();
     } catch (e) {
         console.error('Erro ao buscar caixa:', e);
     }
 }
 
 function renderCaixaTables() {
-    const entryQuery = document.getElementById('entry-search').value.toLowerCase();
-    const expenseQuery = document.getElementById('expense-search-caixa').value.toLowerCase();
+    const searchValElem = document.getElementById('caixa-search');
+    const query = searchValElem ? searchValElem.value.toLowerCase() : '';
     
     // 1. Tabela de Entradas
-    const entriesList = document.getElementById('entries-list');
-    entriesList.innerHTML = '';
-    
-    const filteredEntries = allMonthEntries.filter(e => {
-        const cNome = e.clientes ? e.clientes.nome : '';
-        const desc = e.descricao_servico || '';
-        return cNome.toLowerCase().includes(entryQuery) || desc.toLowerCase().includes(entryQuery);
-    });
-    
-    filteredEntries.forEach(e => {
-        const tr = document.createElement('tr');
-        const dateFmt = new Date(e.data_servico).toLocaleDateString('pt-BR');
-        const cNome = e.clientes ? e.clientes.nome : 'Sem Cliente';
+    const entriesList = document.getElementById('caixa-entradas-list');
+    if (entriesList) {
+        entriesList.innerHTML = '';
         
-        tr.innerHTML = `
-            <td data-label="Data">${dateFmt}</td>
-            <td data-label="Cliente">${cNome}</td>
-            <td data-label="Serviço">${e.descricao_servico}</td>
-            <td data-label="Pagamento">${e.forma_pagamento}</td>
-            <td data-label="Valor" style="color:#10b981; font-weight:600;">+${formatCurrency(e.valor)}</td>
-            <td data-label="Ações" class="actions-cell">
-                <button class="action-btn delete" onclick="deleteEntry(${e.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
-            </td>
-        `;
-        entriesList.appendChild(tr);
-    });
+        const filteredEntries = allMonthEntries.filter(e => {
+            const cNome = e.clientes ? e.clientes.nome : '';
+            const desc = e.descricao_servico || '';
+            const forma = e.forma_pagamento || '';
+            return cNome.toLowerCase().includes(query) || desc.toLowerCase().includes(query) || forma.toLowerCase().includes(query);
+        });
+        
+        if (filteredEntries.length === 0) {
+            entriesList.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-muted);">Nenhuma entrada encontrada.</td></tr>';
+        } else {
+            filteredEntries.forEach(e => {
+                const tr = document.createElement('tr');
+                const dateFmt = new Date(e.data_servico).toLocaleDateString('pt-BR');
+                const cNome = e.clientes ? e.clientes.nome : 'Sem Cliente';
+                const labelPay = normalizePaymentMethod(e.forma_pagamento);
+                
+                tr.innerHTML = `
+                    <td data-label="Data">${dateFmt}</td>
+                    <td data-label="Cliente / Serviço">
+                        <div style="font-weight: 500; color: var(--color-text-light);">${cNome}</div>
+                        <div style="font-size: 0.85rem; color: var(--color-text-muted);">${e.descricao_servico}</div>
+                    </td>
+                    <td data-label="Forma">${labelPay}</td>
+                    <td data-label="Valor" style="color: var(--color-green); font-weight: 600;">+${formatCurrency(e.valor)}</td>
+                    <td data-label="Ações" class="actions-cell">
+                        <button class="action-btn edit" onclick="editEntry(${e.id})" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button class="action-btn delete" onclick="deleteEntry(${e.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                entriesList.appendChild(tr);
+            });
+        }
+    }
     
     // 2. Tabela de Saídas
-    const expensesList = document.getElementById('expenses-list');
-    expensesList.innerHTML = '';
-    
-    const filteredExpenses = allMonthExpenses.filter(exp => {
-        const desc = exp.descricao || '';
-        return desc.toLowerCase().includes(expenseQuery);
-    });
-    
-    filteredExpenses.forEach(exp => {
-        const tr = document.createElement('tr');
-        const dateFmt = new Date(exp.data_despesa).toLocaleDateString('pt-BR');
+    const expensesList = document.getElementById('caixa-saidas-list');
+    if (expensesList) {
+        expensesList.innerHTML = '';
         
-        tr.innerHTML = `
-            <td data-label="Data">${dateFmt}</td>
-            <td data-label="Descrição">${exp.descricao}</td>
-            <td data-label="Pagamento">${exp.forma_pagamento}</td>
-            <td data-label="Valor" style="color:#ef4444; font-weight:600;">-${formatCurrency(exp.valor)}</td>
-            <td data-label="Ações" class="actions-cell">
-                <button class="action-btn delete" onclick="deleteExpense(${exp.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
-            </td>
-        `;
-        expensesList.appendChild(tr);
-    });
-}
-
-function renderDailyBalance() {
-    const selectedDateStr = document.getElementById('caixa-diario-data').value;
-    if (!selectedDateStr) return;
-    
-    let sumDinheiro = 0;
-    let sumPix = 0;
-    let sumBoleto = 0;
-    let sumCartao = 0;
-    let sumLiquido = 0;
-    
-    // Somar Entradas do dia selecionado
-    allMonthEntries.forEach(e => {
-        const dateE = new Date(e.data_servico).toLocaleDateString('en-CA');
-        if (dateE === selectedDateStr) {
-            sumLiquido += e.valor;
-            if (e.forma_pagamento === 'DINHEIRO') sumDinheiro += e.valor;
-            else if (e.forma_pagamento === 'PIX') sumPix += e.valor;
-            else if (e.forma_pagamento === 'BOLETO') sumBoleto += e.valor;
-            else sumCartao += e.valor; // CHEQUE
+        const filteredExpenses = allMonthExpenses.filter(exp => {
+            const desc = exp.descricao || '';
+            const forma = exp.forma_pagamento || '';
+            return desc.toLowerCase().includes(query) || forma.toLowerCase().includes(query);
+        });
+        
+        if (filteredExpenses.length === 0) {
+            expensesList.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-muted);">Nenhuma saída encontrada.</td></tr>';
+        } else {
+            filteredExpenses.forEach(exp => {
+                const tr = document.createElement('tr');
+                const dateFmt = new Date(exp.data_despesa).toLocaleDateString('pt-BR');
+                const labelPay = normalizePaymentMethod(exp.forma_pagamento);
+                
+                tr.innerHTML = `
+                    <td data-label="Data">${dateFmt}</td>
+                    <td data-label="Fornecedor / Descrição">${exp.descricao}</td>
+                    <td data-label="Forma">${labelPay}</td>
+                    <td data-label="Valor" style="color: var(--color-red); font-weight: 600;">-${formatCurrency(exp.valor)}</td>
+                    <td data-label="Ações" class="actions-cell">
+                        <button class="action-btn edit" onclick="editExpense(${exp.id})" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button class="action-btn delete" onclick="deleteExpense(${exp.id})" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                expensesList.appendChild(tr);
+            });
         }
-    });
-    
-    // Subtrair Saídas do dia selecionado
-    allMonthExpenses.forEach(exp => {
-        const dateExp = new Date(exp.data_despesa).toLocaleDateString('en-CA');
-        if (dateExp === selectedDateStr) {
-            sumLiquido -= exp.valor;
-            if (exp.forma_pagamento === 'DINHEIRO') sumDinheiro -= exp.valor;
-            else if (exp.forma_pagamento === 'PIX') sumPix -= exp.valor;
-            else if (exp.forma_pagamento === 'BOLETO') sumBoleto -= exp.valor;
-            else sumCartao -= exp.valor; // CARTAO
-        }
-    });
-    
-    // Atualizar HTML
-    document.getElementById('balance-dinheiro').textContent = formatCurrency(sumDinheiro);
-    document.getElementById('balance-pix').textContent = formatCurrency(sumPix);
-    document.getElementById('balance-boleto').textContent = formatCurrency(sumBoleto);
-    document.getElementById('balance-cartao').textContent = formatCurrency(sumCartao);
-    
-    const balanceLiqElem = document.getElementById('balance-liquido');
-    balanceLiqElem.textContent = formatCurrency(sumLiquido);
-    
-    balanceLiqElem.classList.remove('positive', 'negative');
-    if (sumLiquido > 0) balanceLiqElem.classList.add('positive');
-    else if (sumLiquido < 0) balanceLiqElem.classList.add('negative');
+    }
 }
 
 // 📂 INSERÇÃO E EXCLUSÃO DO CAIXA
 async function saveEntry(e) {
     e.preventDefault();
     const id = document.getElementById('entry-id-field').value;
-    const entry = {
-        data_servico: new Date(document.getElementById('entry-date').value + 'T12:00:00').toISOString(),
-        cliente_id: parseInt(document.getElementById('entry-client-select').value),
-        descricao_servico: document.getElementById('entry-desc').value.trim(),
-        valor: parseFloat(document.getElementById('entry-value').value),
-        forma_pagamento: document.getElementById('entry-payment').value,
-        num_parcelas: 1,
-        valor_parcela: parseFloat(document.getElementById('entry-value').value)
-    };
+    const msg = id ? 'Deseja realmente salvar as alterações desta entrada?' : 'Deseja realmente registrar esta entrada?';
+    if (!confirm(msg)) return;
+
+    const payment = document.getElementById('entry-payment').value;
+    const installmentsInput = document.getElementById('entry-installments');
+    const numInstallments = (payment === 'BOLETO' && installmentsInput) ? (parseInt(installmentsInput.value) || 1) : 1;
+    const valorTotal = parseFloat(document.getElementById('entry-value').value);
+    const clienteId = parseInt(document.getElementById('entry-client-select').value);
+    const descricaoBase = document.getElementById('entry-desc').value.trim();
+
     try {
         let res;
         if (id) {
+            // Editando entrada existente: edita como um lançamento individual normal
+            const entry = {
+                data_servico: new Date(document.getElementById('entry-date').value + 'T12:00:00').toISOString(),
+                cliente_id: clienteId,
+                descricao_servico: descricaoBase,
+                valor: valorTotal,
+                forma_pagamento: payment,
+                num_parcelas: 1,
+                valor_parcela: valorTotal
+            };
             res = await supabaseClient.from('servicos_realizados').update(entry).eq('id', id);
         } else {
-            res = await supabaseClient.from('servicos_realizados').insert([entry]);
+            // Criando entrada nova: se for boleto em várias parcelas, fazer múltiplos lançamentos
+            if (payment === 'BOLETO' && numInstallments > 1) {
+                const valorParcela = parseFloat((valorTotal / numInstallments).toFixed(2));
+                const entriesToInsert = [];
+                
+                for (let i = 1; i <= numInstallments; i++) {
+                    const dateInput = document.querySelector(`.entry-installment-date[data-index="${i}"]`);
+                    const dateVal = dateInput ? dateInput.value : document.getElementById('entry-date').value;
+                    const dataServico = new Date(dateVal + 'T12:00:00').toISOString();
+                    
+                    entriesToInsert.push({
+                        data_servico: dataServico,
+                        cliente_id: clienteId,
+                        descricao_servico: `[Parc ${i}/${numInstallments}] ${descricaoBase}`,
+                        valor: valorParcela,
+                        forma_pagamento: 'BOLETO',
+                        num_parcelas: numInstallments,
+                        valor_parcela: valorParcela
+                    });
+                }
+                res = await supabaseClient.from('servicos_realizados').insert(entriesToInsert);
+            } else {
+                const entry = {
+                    data_servico: new Date(document.getElementById('entry-date').value + 'T12:00:00').toISOString(),
+                    cliente_id: clienteId,
+                    descricao_servico: descricaoBase,
+                    valor: valorTotal,
+                    forma_pagamento: payment,
+                    num_parcelas: 1,
+                    valor_parcela: valorTotal
+                };
+                res = await supabaseClient.from('servicos_realizados').insert([entry]);
+            }
         }
         if (res.error) throw res.error;
         closeModal('modal-entry');
@@ -1414,9 +1807,36 @@ async function deleteEntry(id) {
     }
 }
 
+async function editEntry(id) {
+    if (!confirm('Deseja realmente editar esta entrada?')) return;
+    try {
+        const { data, error } = await supabaseClient.from('servicos_realizados').select('*').eq('id', id).single();
+        if (error) throw error;
+        
+        document.getElementById('entry-id-field').value = data.id;
+        document.getElementById('entry-date').value = data.data_servico ? data.data_servico.split('T')[0] : '';
+        document.getElementById('entry-client-select').value = data.cliente_id;
+        document.getElementById('entry-desc').value = data.descricao_servico;
+        document.getElementById('entry-value').value = data.valor;
+        document.getElementById('entry-payment').value = data.forma_pagamento;
+        
+        const installmentsGroup = document.getElementById('entry-installments-group');
+        if (installmentsGroup) installmentsGroup.style.display = 'none';
+        
+        document.getElementById('entry-modal-title').textContent = 'Editar Lançamento de Entrada';
+        document.getElementById('modal-entry').classList.remove('hidden');
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao carregar entrada para edição: ' + e.message);
+    }
+}
+
 async function saveExpense(e) {
     e.preventDefault();
     const id = document.getElementById('expense-id-field').value;
+    const msg = id ? 'Deseja realmente salvar as alterações desta saída?' : 'Deseja realmente registrar esta saída?';
+    if (!confirm(msg)) return;
+
     const expense = {
         data_despesa: new Date(document.getElementById('expense-date').value + 'T12:00:00').toISOString(),
         descricao: document.getElementById('expense-desc').value.trim(),
@@ -1448,6 +1868,26 @@ async function deleteExpense(id) {
         if (currentView === 'dashboard') fetchCalendar();
     } catch (e) {
         alert('Erro ao excluir despesa: ' + e.message);
+    }
+}
+
+async function editExpense(id) {
+    if (!confirm('Deseja realmente editar esta saída?')) return;
+    try {
+        const { data, error } = await supabaseClient.from('despesas').select('*').eq('id', id).single();
+        if (error) throw error;
+        
+        document.getElementById('expense-id-field').value = data.id;
+        document.getElementById('expense-date').value = data.data_despesa ? data.data_despesa.split('T')[0] : '';
+        document.getElementById('expense-desc').value = data.descricao;
+        document.getElementById('expense-value').value = data.valor;
+        document.getElementById('expense-payment').value = data.forma_pagamento;
+        
+        document.getElementById('expense-modal-title').textContent = 'Editar Lançamento de Saída';
+        document.getElementById('modal-expense').classList.remove('hidden');
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao carregar despesa para edição: ' + e.message);
     }
 }
 
@@ -1483,27 +1923,35 @@ function setupBudgetCreatorEvents() {
     }
 
     // Auto preencher preço unitário ao mudar seleção de item
-    const itemSelect = document.getElementById('budget-item-select');
-    if (itemSelect) {
-        itemSelect.addEventListener('change', (e) => {
-            const itemId = parseInt(e.target.value);
+    const itemInput = document.getElementById('budget-item-input');
+    if (itemInput) {
+        itemInput.addEventListener('input', (e) => {
+            const val = e.target.value;
             const type = itemType.value;
             const priceInput = document.getElementById('budget-item-price');
             
             if (type === 'PRODUTO') {
-                const prod = allProducts.find(p => p.id === itemId);
+                const prod = allProducts.find(p => p.nome === val || `${p.nome} (Estoque: ${parseFloat(p.quantidade).toFixed(1)})` === val);
                 if (prod) priceInput.value = prod.preco_venda;
             } else {
-                const serv = allServices.find(s => s.id === itemId);
+                const serv = allServices.find(s => s.nome === val || `${s.nome} (${s.tipo === 'POR_HORA' ? 'Hora' : 'Fixo'})` === val);
                 if (serv) priceInput.value = serv.valor_base;
             }
         });
     }
 }
 
-async function openBudgetCreator() {
+async function openBudgetCreator(id) {
+    const editId = (typeof id === 'number') ? id : null;
+    if (editId && !confirm('Deseja realmente editar este orçamento?')) return;
+    currentEditingBudgetId = editId;
     budgetCart = [];
     updateBudgetCartTable();
+    
+    const titleEl = document.querySelector('#budget-creator-panel .panel-title span');
+    if (titleEl) {
+        titleEl.textContent = editId ? `Editar Orçamento #${editId}` : 'Novo Orçamento';
+    }
     
     try {
         // Carrega clientes, produtos e serviços em paralelo
@@ -1528,6 +1976,32 @@ async function openBudgetCreator() {
         document.getElementById('budget-item-type').value = 'PRODUTO';
         populateBudgetCreatorItems();
 
+        if (editId) {
+            // Buscar dados do orçamento
+            const { data: budget, error: bErr } = await supabaseClient.from('orcamentos').select('*').eq('id', editId).single();
+            if (bErr) throw bErr;
+            
+            // Setar cliente
+            cliSelect.value = budget.cliente_id;
+            
+            // Buscar itens cadastrados
+            const { data: items, error: iErr } = await supabaseClient.from('orcamento_itens').select('*').eq('orcamento_id', editId);
+            if (iErr) throw iErr;
+            
+            // Carregar no carrinho
+            budgetCart = items.map(item => ({
+                id: item.id || Date.now() + Math.random(),
+                tipo_item: item.tipo_item,
+                produto_id: item.produto_id,
+                servico_id: item.servico_id,
+                descricao: item.descricao,
+                quantidade: item.quantidade,
+                valor_unitario: item.valor_unitario,
+                valor_total: item.valor_total
+            }));
+            updateBudgetCartTable();
+        }
+
         document.getElementById('budget-creator-panel').classList.remove('hidden');
 
     } catch (e) { alert('Erro ao carregar dados para o orçamento: ' + e.message); }
@@ -1539,16 +2013,23 @@ function closeBudgetCreator() {
 
 function populateBudgetCreatorItems() {
     const type = document.getElementById('budget-item-type').value;
-    const itemSelect = document.getElementById('budget-item-select');
-    itemSelect.innerHTML = '<option value="">Escolha um item...</option>';
+    const datalist = document.getElementById('budget-item-datalist');
+    const input = document.getElementById('budget-item-input');
+    
+    datalist.innerHTML = '';
+    input.value = '';
 
     if (type === 'PRODUTO') {
         allProducts.forEach(p => {
-            itemSelect.innerHTML += `<option value="${p.id}">${p.nome} (Estoque: ${parseFloat(p.quantidade).toFixed(1)})</option>`;
+            const option = document.createElement('option');
+            option.value = `${p.nome} (Estoque: ${parseFloat(p.quantidade).toFixed(1)})`;
+            datalist.appendChild(option);
         });
     } else {
         allServices.forEach(s => {
-            itemSelect.innerHTML += `<option value="${s.id}">${s.nome} (${s.tipo === 'POR_HORA' ? 'Hora' : 'Fixo'})</option>`;
+            const option = document.createElement('option');
+            option.value = `${s.nome} (${s.tipo === 'POR_HORA' ? 'Hora' : 'Fixo'})`;
+            datalist.appendChild(option);
         });
     }
     document.getElementById('budget-item-qty').value = '1';
@@ -1556,25 +2037,26 @@ function populateBudgetCreatorItems() {
 }
 
 function addBudgetCartItem() {
-    const select = document.getElementById('budget-item-select');
-    const itemId = parseInt(select.value);
+    const input = document.getElementById('budget-item-input');
+    const val = input.value;
     const type = document.getElementById('budget-item-type').value;
     const qty = parseFloat(document.getElementById('budget-item-qty').value);
     const price = parseFloat(document.getElementById('budget-item-price').value);
 
-    if (!itemId || isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) {
-        alert('Por favor, preencha todos os campos do item corretamente.');
+    let item = null;
+    if (type === 'PRODUTO') {
+        item = allProducts.find(p => p.nome === val || `${p.nome} (Estoque: ${parseFloat(p.quantidade).toFixed(1)})` === val);
+    } else {
+        item = allServices.find(s => s.nome === val || `${s.nome} (${s.tipo === 'POR_HORA' ? 'Hora' : 'Fixo'})` === val);
+    }
+
+    if (!item || isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) {
+        alert('Por favor, selecione um item válido da lista e preencha a quantidade/preço.');
         return;
     }
 
-    let itemDesc = '';
-    if (type === 'PRODUTO') {
-        const p = allProducts.find(prod => prod.id === itemId);
-        itemDesc = p ? p.nome : '';
-    } else {
-        const s = allServices.find(serv => serv.id === itemId);
-        itemDesc = s ? s.nome : '';
-    }
+    const itemId = item.id;
+    const itemDesc = item.nome;
 
     // Adiciona ao carrinho temporário
     budgetCart.push({
@@ -1591,12 +2073,13 @@ function addBudgetCartItem() {
     updateBudgetCartTable();
 
     // Reset campos de item
-    select.value = '';
+    input.value = '';
     document.getElementById('budget-item-qty').value = '1';
     document.getElementById('budget-item-price').value = '';
 }
 
 function removeBudgetCartItem(tempId) {
+    if (!confirm('Deseja realmente remover este item do orçamento?')) return;
     budgetCart = budgetCart.filter(item => item.id !== tempId);
     updateBudgetCartTable();
 }
@@ -1646,42 +2129,79 @@ async function saveBudget() {
         return;
     }
 
+    const msg = currentEditingBudgetId ? 'Deseja realmente salvar as alterações deste orçamento?' : 'Deseja realmente criar este orçamento?';
+    if (!confirm(msg)) return;
+
     const clientId = parseInt(clientVal);
     const totalGeral = budgetCart.reduce((sum, item) => sum + item.valor_total, 0);
 
-    const budget = {
-        cliente_id: clientId,
-        total: totalGeral,
-        status: 'ABERTO'
-    };
-
     try {
-        // 1. Inserir orçamento cabeçalho
-        const { data: newBudget, error: bErr } = await supabaseClient.from('orcamentos').insert([budget]).select().single();
-        if (bErr) throw bErr;
+        if (currentEditingBudgetId) {
+            // 1. Atualizar orçamento existente
+            const { error: bErr } = await supabaseClient.from('orcamentos').update({
+                cliente_id: clientId,
+                total: totalGeral
+            }).eq('id', currentEditingBudgetId);
+            if (bErr) throw bErr;
 
-        // 2. Formatar itens com o ID do orçamento gerado
-        const itemsToInsert = budgetCart.map(item => ({
-            orcamento_id: newBudget.id,
-            tipo_item: item.tipo_item,
-            produto_id: item.produto_id,
-            servico_id: item.servico_id,
-            descricao: item.descricao,
-            quantidade: item.quantidade,
-            valor_unitario: item.valor_unitario,
-            valor_total: item.valor_total
-        }));
+            // 2. Apagar itens antigos
+            const { error: delErr } = await supabaseClient.from('orcamento_itens').delete().eq('orcamento_id', currentEditingBudgetId);
+            if (delErr) throw delErr;
 
-        // 3. Inserir itens
-        const { error: iErr } = await supabaseClient.from('orcamento_itens').insert(itemsToInsert);
-        if (iErr) throw iErr;
+            // 3. Formatar novos itens
+            const itemsToInsert = budgetCart.map(item => ({
+                orcamento_id: currentEditingBudgetId,
+                tipo_item: item.tipo_item,
+                produto_id: item.produto_id,
+                servico_id: item.servico_id,
+                descricao: item.descricao,
+                quantidade: item.quantidade,
+                valor_unitario: item.valor_unitario,
+                valor_total: item.valor_total
+            }));
 
-        alert(`Orçamento #${newBudget.id} salvo com sucesso!`);
+            // 4. Inserir novos itens
+            const { error: insErr } = await supabaseClient.from('orcamento_itens').insert(itemsToInsert);
+            if (insErr) throw insErr;
+
+            alert(`Orçamento #${currentEditingBudgetId} atualizado com sucesso!`);
+        } else {
+            // Criando novo orçamento
+            const budget = {
+                cliente_id: clientId,
+                total: totalGeral,
+                status: 'ABERTO'
+            };
+
+            // 1. Inserir orçamento cabeçalho
+            const { data: newBudget, error: bErr } = await supabaseClient.from('orcamentos').insert([budget]).select().single();
+            if (bErr) throw bErr;
+
+            // 2. Formatar itens com o ID do orçamento gerado
+            const itemsToInsert = budgetCart.map(item => ({
+                orcamento_id: newBudget.id,
+                tipo_item: item.tipo_item,
+                produto_id: item.produto_id,
+                servico_id: item.servico_id,
+                descricao: item.descricao,
+                quantidade: item.quantidade,
+                valor_unitario: item.valor_unitario,
+                valor_total: item.valor_total
+            }));
+
+            // 3. Inserir itens
+            const { error: iErr } = await supabaseClient.from('orcamento_itens').insert(itemsToInsert);
+            if (iErr) throw iErr;
+
+            alert(`Orçamento #${newBudget.id} salvo com sucesso!`);
+        }
+
         closeBudgetCreator();
+        fetchBudgets();
         switchView('budgets');
 
     } catch (e) {
-        alert('Erro ao salvar orçamento completo: ' + e.message);
+        alert('Erro ao salvar orçamento: ' + e.message);
     }
 }
 
@@ -1848,6 +2368,150 @@ function formatCurrency(value) {
         style: 'currency',
         currency: 'BRL'
     }).format(value || 0);
+}
+
+// Agenda simples de lembretes locais
+const AGENDA_STORAGE_KEY = 'tec_agenda_reminders';
+
+function getAgendaReminders() {
+    try {
+        return JSON.parse(localStorage.getItem(AGENDA_STORAGE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveAgendaReminders(reminders) {
+    localStorage.setItem(AGENDA_STORAGE_KEY, JSON.stringify(reminders));
+}
+
+function setupAgendaReminderEvents() {
+    const form = document.getElementById('agenda-reminder-form');
+    const deleteBtn = document.getElementById('btn-delete-agenda-reminder');
+
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const date = document.getElementById('agenda-reminder-date').value;
+            const text = document.getElementById('agenda-reminder-text').value.trim();
+            const reminders = getAgendaReminders();
+
+            if (text) {
+                reminders[date] = text;
+            } else {
+                delete reminders[date];
+            }
+
+            saveAgendaReminders(reminders);
+            closeModal('modal-agenda-reminder');
+            fetchCalendar();
+        });
+    }
+
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+            const date = document.getElementById('agenda-reminder-date').value;
+            const reminders = getAgendaReminders();
+            delete reminders[date];
+            saveAgendaReminders(reminders);
+            closeModal('modal-agenda-reminder');
+            fetchCalendar();
+        });
+    }
+}
+
+function fetchCalendar() {
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('calendar-days-grid');
+    const title = document.getElementById('calendar-month-year-title');
+    if (!grid || !title) return;
+
+    const reminders = getAgendaReminders();
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    const monthYearTitle = currentCalendarDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    title.textContent = monthYearTitle;
+    grid.innerHTML = '';
+
+    ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].forEach(day => {
+        const div = document.createElement('div');
+        div.className = 'calendar-day-header';
+        div.textContent = day;
+        grid.appendChild(div);
+    });
+
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const numDays = new Date(year, month + 1, 0).getDate();
+    const prevLastDay = new Date(year, month, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    for (let x = firstDayIndex; x > 0; x--) {
+        const dayNum = prevLastDay - x + 1;
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day other-month';
+        cell.innerHTML = `<span class="calendar-day-number">${dayNum}</span>`;
+        grid.appendChild(cell);
+    }
+
+    for (let day = 1; day <= numDays; day++) {
+        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const reminder = reminders[dateString] || '';
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'calendar-day agenda-day';
+        if (isCurrentMonth && today.getDate() === day) cell.classList.add('today');
+        if (reminder) cell.classList.add('has-reminder');
+
+        cell.innerHTML = `
+            <span class="calendar-day-number">${day}</span>
+            <div class="calendar-events">
+                ${reminder ? `<span class="calendar-badge badge-reminder" title="${escapeHtml(reminder)}">${escapeHtml(reminder)}</span>` : '<span class="agenda-empty">Adicionar lembrete</span>'}
+            </div>
+        `;
+
+        cell.addEventListener('click', () => openAgendaReminderModal(dateString));
+        grid.appendChild(cell);
+    }
+
+    const totalCells = firstDayIndex + numDays;
+    const remaining = 42 - totalCells;
+    for (let day = 1; day <= remaining; day++) {
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day other-month';
+        cell.innerHTML = `<span class="calendar-day-number">${day}</span>`;
+        grid.appendChild(cell);
+    }
+}
+
+function openAgendaReminderModal(dateString) {
+    const reminders = getAgendaReminders();
+    const date = new Date(`${dateString}T00:00:00`);
+    const formattedDate = date.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+    const reminderText = reminders[dateString] || '';
+
+    document.getElementById('agenda-reminder-title').textContent = `Lembrete - ${formattedDate}`;
+    document.getElementById('agenda-reminder-date').value = dateString;
+    document.getElementById('agenda-reminder-text').value = reminderText;
+    document.getElementById('btn-delete-agenda-reminder').style.display = reminderText ? 'inline-flex' : 'none';
+    openModal('modal-agenda-reminder');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // Registro do Service Worker para PWA
