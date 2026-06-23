@@ -256,6 +256,32 @@ body {
     padding-left: 42px;
 }
 
+.input-wrapper input[type="password"],
+.input-wrapper input.password-visible {
+    padding-right: 44px;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-smooth);
+}
+
+.password-toggle-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+}
+
 .input-wrapper input:focus, .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
     outline: none;
     border-color: var(--border-glass-focus);

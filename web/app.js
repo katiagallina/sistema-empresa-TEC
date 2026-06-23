@@ -11,6 +11,8 @@ let allMonthExpenses = [];
 let currentCaixaDate = new Date();
 let selectedDayEvents = [];
 let selectedDayDateStr = '';
+let agendaRemindersCache = {};
+let agendaSupabaseAvailable = true;
 
 // Itens temporários do orçamento sendo criado (Carrinho)
 let budgetCart = [];
@@ -105,6 +107,8 @@ function handleAuthStateChange(session) {
     currentSession = session;
     
     if (session) {
+        agendaRemindersCache = {};
+        agendaSupabaseAvailable = true;
         document.getElementById('user-display-sidebar').textContent = session.user.email;
         document.getElementById('user-display-mobile').textContent = session.user.email.split('@')[0];
         
@@ -112,14 +116,28 @@ function handleAuthStateChange(session) {
         appSection.classList.remove('hidden');
         
         if (loginForm) loginForm.reset();
+        resetPasswordVisibility();
         hideLoginError();
 
         // Ir para a tela padrão (Dashboard)
         switchView('dashboard');
     } else {
+        agendaRemindersCache = {};
+        resetPasswordVisibility();
         appSection.classList.add('hidden');
         authSection.classList.remove('hidden');
     }
+}
+
+function resetPasswordVisibility() {
+    const togglePasswordBtn = document.getElementById('btn-toggle-password');
+    if (!passwordInput || !togglePasswordBtn) return;
+
+    passwordInput.type = 'password';
+    passwordInput.classList.remove('password-visible');
+    togglePasswordBtn.setAttribute('aria-label', 'Mostrar senha');
+    togglePasswordBtn.setAttribute('title', 'Mostrar senha');
+    togglePasswordBtn.innerHTML = '<i class="fa-regular fa-eye"></i>';
 }
 
 // Configura eventos gerais do DOM
@@ -135,6 +153,18 @@ function setupEventListeners() {
     }
 
     // Botão de Logout
+    const togglePasswordBtn = document.getElementById('btn-toggle-password');
+    if (togglePasswordBtn && passwordInput) {
+        togglePasswordBtn.addEventListener('click', () => {
+            const isVisible = passwordInput.type === 'text';
+            passwordInput.type = isVisible ? 'password' : 'text';
+            passwordInput.classList.toggle('password-visible', !isVisible);
+            togglePasswordBtn.setAttribute('aria-label', isVisible ? 'Mostrar senha' : 'Ocultar senha');
+            togglePasswordBtn.setAttribute('title', isVisible ? 'Mostrar senha' : 'Ocultar senha');
+            togglePasswordBtn.innerHTML = `<i class="fa-regular ${isVisible ? 'fa-eye' : 'fa-eye-slash'}"></i>`;
+        });
+    }
+
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             await logout();
@@ -2370,10 +2400,10 @@ function formatCurrency(value) {
     }).format(value || 0);
 }
 
-// Agenda simples de lembretes locais
+// Agenda de lembretes persistidos no Supabase, com fallback local.
 const AGENDA_STORAGE_KEY = 'tec_agenda_reminders';
 
-function getAgendaReminders() {
+function getLocalAgendaReminders() {
     try {
         return JSON.parse(localStorage.getItem(AGENDA_STORAGE_KEY)) || {};
     } catch (e) {
@@ -2381,8 +2411,106 @@ function getAgendaReminders() {
     }
 }
 
-function saveAgendaReminders(reminders) {
+function saveLocalAgendaReminders(reminders) {
     localStorage.setItem(AGENDA_STORAGE_KEY, JSON.stringify(reminders));
+}
+
+function isMissingAgendaTable(error) {
+    return error && (error.code === '42P01' || String(error.message || '').includes('agenda_lembretes'));
+}
+
+async function loadAgendaReminders() {
+    const localReminders = getLocalAgendaReminders();
+
+    if (!supabaseClient || !currentSession || !agendaSupabaseAvailable) {
+        agendaRemindersCache = localReminders;
+        return agendaRemindersCache;
+    }
+
+    const { data, error } = await supabaseClient
+        .from('agenda_lembretes')
+        .select('data, texto')
+        .eq('user_id', currentSession.user.id);
+
+    if (error) {
+        if (isMissingAgendaTable(error)) {
+            agendaSupabaseAvailable = false;
+            console.warn('Tabela agenda_lembretes nao encontrada. Usando lembretes locais ate a tabela ser criada.');
+        } else {
+            console.error('Erro ao carregar lembretes da agenda:', error);
+        }
+        agendaRemindersCache = localReminders;
+        return agendaRemindersCache;
+    }
+
+    agendaSupabaseAvailable = true;
+    agendaRemindersCache = {};
+    (data || []).forEach(item => {
+        agendaRemindersCache[item.data] = item.texto;
+    });
+
+    if (Object.keys(agendaRemindersCache).length === 0 && Object.keys(localReminders).length > 0) {
+        agendaRemindersCache = localReminders;
+        await syncAgendaRemindersToSupabase();
+    }
+
+    saveLocalAgendaReminders(agendaRemindersCache);
+    return agendaRemindersCache;
+}
+
+async function syncAgendaRemindersToSupabase() {
+    if (!supabaseClient || !currentSession || !agendaSupabaseAvailable) return;
+
+    const rows = Object.entries(agendaRemindersCache)
+        .filter(([, text]) => String(text || '').trim())
+        .map(([date, text]) => ({
+            user_id: currentSession.user.id,
+            data: date,
+            texto: text
+        }));
+
+    if (rows.length === 0) return;
+
+    const { error } = await supabaseClient
+        .from('agenda_lembretes')
+        .upsert(rows, { onConflict: 'user_id,data' });
+
+    if (error) {
+        if (isMissingAgendaTable(error)) agendaSupabaseAvailable = false;
+        console.error('Erro ao sincronizar lembretes da agenda:', error);
+    }
+}
+
+async function saveAgendaReminder(date, text) {
+    if (text) {
+        agendaRemindersCache[date] = text;
+    } else {
+        delete agendaRemindersCache[date];
+    }
+
+    saveLocalAgendaReminders(agendaRemindersCache);
+
+    if (!supabaseClient || !currentSession || !agendaSupabaseAvailable) return;
+
+    const request = text
+        ? supabaseClient
+            .from('agenda_lembretes')
+            .upsert([{ user_id: currentSession.user.id, data: date, texto: text }], { onConflict: 'user_id,data' })
+        : supabaseClient
+            .from('agenda_lembretes')
+            .delete()
+            .eq('user_id', currentSession.user.id)
+            .eq('data', date);
+
+    const { error } = await request;
+    if (error) {
+        if (isMissingAgendaTable(error)) {
+            agendaSupabaseAvailable = false;
+            return;
+        }
+        console.error('Erro ao salvar lembrete da agenda:', error);
+        throw error;
+    }
 }
 
 function setupAgendaReminderEvents() {
@@ -2390,37 +2518,38 @@ function setupAgendaReminderEvents() {
     const deleteBtn = document.getElementById('btn-delete-agenda-reminder');
 
     if (form) {
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const date = document.getElementById('agenda-reminder-date').value;
             const text = document.getElementById('agenda-reminder-text').value.trim();
-            const reminders = getAgendaReminders();
 
-            if (text) {
-                reminders[date] = text;
-            } else {
-                delete reminders[date];
+            try {
+                await saveAgendaReminder(date, text);
+                closeModal('modal-agenda-reminder');
+                fetchCalendar();
+            } catch (error) {
+                alert('Nao foi possivel salvar o lembrete. Verifique se a tabela agenda_lembretes foi criada no Supabase.');
             }
-
-            saveAgendaReminders(reminders);
-            closeModal('modal-agenda-reminder');
-            fetchCalendar();
         });
     }
 
     if (deleteBtn) {
-        deleteBtn.addEventListener('click', () => {
+        deleteBtn.addEventListener('click', async () => {
             const date = document.getElementById('agenda-reminder-date').value;
-            const reminders = getAgendaReminders();
-            delete reminders[date];
-            saveAgendaReminders(reminders);
-            closeModal('modal-agenda-reminder');
-            fetchCalendar();
+
+            try {
+                await saveAgendaReminder(date, '');
+                closeModal('modal-agenda-reminder');
+                fetchCalendar();
+            } catch (error) {
+                alert('Nao foi possivel apagar o lembrete. Verifique se a tabela agenda_lembretes foi criada no Supabase.');
+            }
         });
     }
 }
 
-function fetchCalendar() {
+async function fetchCalendar() {
+    await loadAgendaReminders();
     renderCalendar();
 }
 
@@ -2429,7 +2558,7 @@ function renderCalendar() {
     const title = document.getElementById('calendar-month-year-title');
     if (!grid || !title) return;
 
-    const reminders = getAgendaReminders();
+    const reminders = agendaRemindersCache;
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
     const monthYearTitle = currentCalendarDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -2487,8 +2616,8 @@ function renderCalendar() {
     }
 }
 
-function openAgendaReminderModal(dateString) {
-    const reminders = getAgendaReminders();
+async function openAgendaReminderModal(dateString) {
+    const reminders = await loadAgendaReminders();
     const date = new Date(`${dateString}T00:00:00`);
     const formattedDate = date.toLocaleDateString('pt-BR', {
         weekday: 'long',
