@@ -1245,9 +1245,13 @@ async function registrarVendasDaOS(osId, formaPagamento = 'A COMBINAR') {
 }
 
 async function deleteOS(id) {
-    if (!confirm('Deseja excluir esta Ordem de Serviço? Itens relacionados também serão apagados.')) return;
+    if (!confirm('Deseja excluir esta Ordem de Serviço? Itens relacionados e vendas associadas também serão apagados.')) return;
     try {
+        // Exclui vendas associadas primeiro (chave estrangeira)
+        await supabaseClient.from('vendas').delete().eq('ordem_servico_id', id);
+        // Exclui itens da O.S.
         await supabaseClient.from('ordem_servico_itens').delete().eq('ordem_servico_id', id);
+        // Exclui a O.S.
         const { error } = await supabaseClient.from('ordem_servico').delete().eq('id', id);
         if (error) throw error;
         fetchOS();
